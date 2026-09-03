@@ -1,0 +1,376 @@
+{
+  "info": {
+    "_postman_id": "b8d4f5e2-9c3a-4d8b-ae26-geoguessr-site-api",
+    "name": "GeoGuessr (site API)",
+    "description": "Calls GeoGuessr’s own unofficial API (`www.geoguessr.com/api/...`) — the same endpoints the website uses.\n\n## Setup\n1. Log in at https://www.geoguessr.com\n2. DevTools → Application → Cookies → copy the `_ncfa` value\n3. Paste it into this collection’s `ncfa` variable\n\nDo not share that cookie. It is your GeoGuessr session.\n\n## Daily friends board\n1. Run **Today’s daily challenge** (saves `challenge_token`)\n2. Run **Friends’ scores for this challenge**\n\nThis API is undocumented and can change. Postman is fine; browsers will hit CORS if you call it from your own frontend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "geoguessr_base", "value": "https://www.geoguessr.com" },
+    { "key": "ncfa", "value": "" },
+    { "key": "challenge_token", "value": "" },
+    { "key": "game_token", "value": "" },
+    { "key": "user_id", "value": "" },
+    { "key": "search", "value": "" }
+  ],
+  "auth": { "type": "noauth" },
+  "item": [
+    {
+      "name": "Session",
+      "item": [
+        {
+          "name": "My profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  const id = json.user?.id || json.id;",
+                  "  if (id) pm.collectionVariables.set('user_id', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/profiles",
+            "description": "Confirms the cookie works and returns the logged-in user. Saves `user_id`."
+          }
+        },
+        {
+          "name": "My stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/profiles/stats"
+          }
+        },
+        {
+          "name": "Sign in (optional)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cookie = pm.cookies.get('_ncfa');",
+                  "if (cookie) pm.collectionVariables.set('ncfa', cookie);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"you@example.com\",\n  \"password\": \"your-password\"\n}"
+            },
+            "url": "{{geoguessr_base}}/api/v3/accounts/signin",
+            "description": "Prefer copying `_ncfa` from the browser. Sign-in often has captcha and may fail in Postman."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Daily challenge",
+      "item": [
+        {
+          "name": "Today’s daily challenge",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code !== 200) return;",
+                  "const json = pm.response.json();",
+                  "const token = json.token || json.challenge?.token || json.challengeToken;",
+                  "if (token) pm.collectionVariables.set('challenge_token', token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/challenges/daily-challenges/today",
+            "description": "Today’s daily. Saves `challenge_token` for the score calls below."
+          }
+        },
+        {
+          "name": "Previous daily challenges",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/challenges/daily-challenges/previous",
+            "description": "Past dailies. Copy a token into `challenge_token` to look up that day’s scores."
+          }
+        },
+        {
+          "name": "Tomorrow’s daily (if available)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/challenges/daily-challenges/tomorrow"
+          }
+        },
+        {
+          "name": "My week on the daily",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/challenges/daily-challenges/me/week"
+          }
+        },
+        {
+          "name": "Challenge details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/challenges/{{challenge_token}}",
+            "description": "Map, time limit, and whether you already have a game on this challenge."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scores (how everyone did)",
+      "item": [
+        {
+          "name": "Friends’ scores for this challenge",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": {
+              "raw": "{{geoguessr_base}}/api/v3/results/highscores/{{challenge_token}}?offset=0&limit=50&minRounds=5&friends=true",
+              "host": ["{{geoguessr_base}}"],
+              "path": ["api", "v3", "results", "highscores", "{{challenge_token}}"],
+              "query": [
+                { "key": "offset", "value": "0" },
+                { "key": "limit", "value": "50" },
+                { "key": "minRounds", "value": "5", "description": "Finished games only (5 rounds)" },
+                { "key": "friends", "value": "true" }
+              ]
+            },
+            "description": "The call you want for “how did my friends do today.” Needs `challenge_token` from today’s daily.\n\nEach item typically has player name, user id, total score, and a game token."
+          }
+        },
+        {
+          "name": "Global highscores for this challenge",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": {
+              "raw": "{{geoguessr_base}}/api/v3/results/highscores/{{challenge_token}}?offset=0&limit=26&minRounds=5",
+              "host": ["{{geoguessr_base}}"],
+              "path": ["api", "v3", "results", "highscores", "{{challenge_token}}"],
+              "query": [
+                { "key": "offset", "value": "0" },
+                { "key": "limit", "value": "26" },
+                { "key": "minRounds", "value": "5" }
+              ]
+            },
+            "description": "Same as the public results page, not limited to friends."
+          }
+        },
+        {
+          "name": "Paged scores",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/results/scores/{{challenge_token}}/0/100",
+            "description": "Alternate results list: `/results/scores/{token}/{offset}/{limit}`."
+          }
+        },
+        {
+          "name": "One game’s full result",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/games/{{game_token}}",
+            "description": "Round-by-round score and distance. Set `game_token` from a highscores row (`gameToken` / `game.token`)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Friends and activity",
+      "item": [
+        {
+          "name": "Friends list",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": {
+              "raw": "{{geoguessr_base}}/api/v3/social/friends?page=0&count=50",
+              "host": ["{{geoguessr_base}}"],
+              "path": ["api", "v3", "social", "friends"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "count", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Friends summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/social/friends/summary"
+          }
+        },
+        {
+          "name": "Friendships (short list)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/social/friendships"
+          }
+        },
+        {
+          "name": "Friends activity feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": {
+              "raw": "{{geoguessr_base}}/api/v4/feed/friends?count=20&page=0",
+              "host": ["{{geoguessr_base}}"],
+              "path": ["api", "v4", "feed", "friends"],
+              "query": [
+                { "key": "count", "value": "20" },
+                { "key": "page", "value": "0" }
+              ]
+            },
+            "description": "Recent friend activity. Useful to notice when someone has finished the daily."
+          }
+        },
+        {
+          "name": "My activity feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": {
+              "raw": "{{geoguessr_base}}/api/v4/feed/private?count=20&page=0",
+              "host": ["{{geoguessr_base}}"],
+              "path": ["api", "v4", "feed", "private"],
+              "query": [
+                { "key": "count", "value": "20" },
+                { "key": "page", "value": "0" }
+              ]
+            },
+            "description": "Your recent games, including tokens you can pass into **One game’s full result**."
+          }
+        },
+        {
+          "name": "Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": {
+              "raw": "{{geoguessr_base}}/api/v4/notifications?count=20&page=0",
+              "host": ["{{geoguessr_base}}"],
+              "path": ["api", "v4", "notifications"],
+              "query": [
+                { "key": "count", "value": "20" },
+                { "key": "page", "value": "0" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Search users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": {
+              "raw": "{{geoguessr_base}}/api/v3/search/user?q={{search}}",
+              "host": ["{{geoguessr_base}}"],
+              "path": ["api", "v3", "search", "user"],
+              "query": [{ "key": "q", "value": "{{search}}" }]
+            }
+          }
+        },
+        {
+          "name": "User by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "_ncfa={{ncfa}}" }
+            ],
+            "url": "{{geoguessr_base}}/api/v3/users/{{user_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}
