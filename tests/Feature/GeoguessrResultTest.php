@@ -83,7 +83,10 @@ class GeoguessrResultTest extends TestCase
         $player = User::factory()->create(['name' => 'Historical Hank']);
 
         GeoguesserChallenge::factory()->create([
-            'geoguesser_id' => Geoguesser::factory()->create(['user_id' => $player->id]),
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => $player->id,
+                'username' => 'HankOnGeo',
+            ]),
             'attempted_at' => now()->subDays(3),
             'total_score' => 9900,
             'total_distance' => 2500000,
@@ -97,7 +100,7 @@ class GeoguessrResultTest extends TestCase
         $this->actingAs($viewer)
             ->get(route('geoguessr.index', ['tab' => 'graphs']))
             ->assertOk()
-            ->assertSee('Historical Hank')
+            ->assertSee('Historical Hank (HankOnGeo)')
             ->assertSee('Everyone')
             ->assertSee('XP')
             ->assertSee('4100')

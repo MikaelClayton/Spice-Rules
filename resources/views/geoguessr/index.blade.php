@@ -132,7 +132,7 @@
                             <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="all">Everyone</button>
                             @foreach ($board['players'] as $player)
                                 <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="{{ $player['id'] }}">
-                                    {{ $player['nick'] && $player['nick'] !== $player['name'] ? $player['nick'] : $player['name'] }}{{ $player['isYou'] ? ' (You)' : '' }}
+                                    {{ $player['label'] }}
                                 </button>
                             @endforeach
                         </div>

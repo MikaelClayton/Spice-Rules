@@ -52,7 +52,7 @@ class GeoguessrController extends Controller
                 'id' => $player->id,
                 'name' => $player->user?->name ?? $player->username,
                 'nick' => $player->username,
-                'isYou' => $player->user_id === Auth::id(),
+                'label' => $this->playerLabel($player),
                 'streak' => $player->daily_challenge_current_streak,
                 'bestStreak' => $player->daily_challenge_streak,
             ])->values()->all(),
@@ -65,6 +65,18 @@ class GeoguessrController extends Controller
                 'xp' => $this->arrayValue($challenge->progress, 'xp'),
             ])->values()->all(),
         ];
+    }
+
+    private function playerLabel(Geoguesser $player): string
+    {
+        $name = $player->user?->name ?? $player->username;
+        $nick = $player->username;
+
+        if (filled($nick) && filled($name) && $nick !== $name) {
+            return "{$name} ({$nick})";
+        }
+
+        return (string) ($name ?: $nick);
     }
 
     /**

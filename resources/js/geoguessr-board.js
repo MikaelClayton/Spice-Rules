@@ -168,22 +168,39 @@ function renderStats(rootEl, rows, players, state) {
         return;
     }
 
-    const values = rows.map((row) => metricValue(row, state.metric)).filter((value) => value !== null);
-    const latest = rows.at(-1);
+    const metric = state.metric;
+    const values = rows.map((row) => metricValue(row, metric)).filter((value) => value !== null);
     const player = players.length === 1 ? players[0] : null;
+    const best = pickBest(rows, players, metric);
+    const latest = pickLatest(rows, players, metric);
 
     const cards = [
-        { label: 'Best', value: values.length ? formatMetric(Math.max(...values), state.metric) : '—' },
-        { label: 'Average', value: values.length ? formatMetric(average(values), state.metric) : '—' },
-        { label: 'Games', value: String(values.length) },
         {
-            label: player ? 'Streak' : 'Latest',
-            value: player
-                ? `${player.streak ?? 0} day${Number(player.streak) === 1 ? '' : 's'}`
-                : latest
-                    ? formatMetric(metricValue(latest, state.metric), state.metric)
-                    : '—',
+            label: 'Best',
+            value: best ? formatMetric(best.value, metric) : '—',
+            who: best ? namesForPlayers(best.players) : null,
         },
+        {
+            label: 'Average',
+            value: values.length ? formatMetric(average(values), metric) : '—',
+            who: null,
+        },
+        {
+            label: 'Games',
+            value: String(values.length),
+            who: null,
+        },
+        player
+            ? {
+                label: 'Streak',
+                value: `${player.streak ?? 0} day${Number(player.streak) === 1 ? '' : 's'}`,
+                who: playerLabel(player),
+            }
+            : {
+                label: 'Latest',
+                value: latest ? formatMetric(latest.value, metric) : '—',
+                who: latest ? namesForPlayers(latest.players) : null,
+            },
     ];
 
     host.innerHTML = cards
@@ -193,11 +210,83 @@ function renderStats(rootEl, rows, players, state) {
                 <div class="card-body gap-1 p-4">
                     <p class="text-xs uppercase tracking-wide text-base-content/60">${card.label}</p>
                     <p class="text-xl font-bold tabular-nums">${card.value}</p>
+                    ${card.who ? `<p class="truncate text-xs text-base-content/60">${escapeHtml(card.who)}</p>` : ''}
                 </div>
             </article>
         `,
         )
         .join('');
+}
+
+function isLowerBetter(metric) {
+    return metric === 'distance';
+}
+
+function pickBest(rows, players, metric) {
+    return pickByValue(
+        rows.filter((row) => metricValue(row, metric) !== null),
+        players,
+        metric,
+        (row) => metricValue(row, metric),
+    );
+}
+
+function pickLatest(rows, players, metric) {
+    const dated = rows.filter((row) => row.date && metricValue(row, metric) !== null);
+
+    if (!dated.length) {
+        return null;
+    }
+
+    const latestDate = dated.reduce((max, row) => (row.date > max ? row.date : max), dated[0].date);
+
+    return pickBest(
+        dated.filter((row) => row.date === latestDate),
+        players,
+        metric,
+    );
+}
+
+function pickByValue(items, players, metric, valueOf) {
+    const scored = items
+        .map((item) => ({ item, value: valueOf(item) }))
+        .filter((entry) => entry.value !== null);
+
+    if (!scored.length) {
+        return null;
+    }
+
+    const bestValue = isLowerBetter(metric)
+        ? Math.min(...scored.map((entry) => entry.value))
+        : Math.max(...scored.map((entry) => entry.value));
+    const winners = scored.filter((entry) => entry.value === bestValue).map((entry) => entry.item);
+    const named = uniquePlayers(winners, players);
+
+    return named.length ? { value: bestValue, players: named } : null;
+}
+
+function uniquePlayers(items, players) {
+    const ids = [
+        ...new Set(
+            items.map((item) => String(item.id ?? item.playerId)).filter((id) => id && id !== 'undefined'),
+        ),
+    ];
+
+    return ids
+        .map((id) => players.find((player) => String(player.id) === id))
+        .filter(Boolean);
+}
+
+function namesForPlayers(players) {
+    return players.map((player) => playerLabel(player)).join(', ');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
 }
 
 function renderTrend(rootEl, rows, players, state, charts, theme, palette) {
@@ -213,7 +302,7 @@ function renderTrend(rootEl, rows, players, state, charts, theme, palette) {
         const color = palette[index % palette.length];
 
         return {
-            label: player.nick || player.name,
+            label: playerLabel(player),
             data: labels.map((date) => {
                 const match = rows.find((row) => String(row.playerId) === String(player.id) && row.date === date);
 
@@ -267,7 +356,7 @@ function renderCompare(rootEl, rows, players, state, charts, theme, palette) {
             copy.textContent = 'Every daily in this range.';
         }
     } else {
-        labels = players.map((player) => player.nick || player.name);
+        labels = players.map((player) => playerLabel(player));
         data = players.map((player) => {
             const values = rows
                 .filter((row) => String(row.playerId) === String(player.id))
@@ -376,6 +465,21 @@ function axisOptions(theme, metric, isMetricAxis) {
 function toggleEmpty(canvas, empty, isEmpty) {
     canvas.parentElement?.classList.toggle('hidden', isEmpty);
     empty?.classList.toggle('hidden', !isEmpty);
+}
+
+function playerLabel(player) {
+    if (player.label) {
+        return player.label;
+    }
+
+    const name = player.name || player.nick || 'Unknown';
+    const nick = player.nick;
+
+    if (nick && nick !== name) {
+        return `${name} (${nick})`;
+    }
+
+    return name;
 }
 
 function metricValue(row, metric) {
