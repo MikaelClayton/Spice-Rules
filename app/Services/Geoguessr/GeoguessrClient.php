@@ -2,11 +2,31 @@
 
 namespace App\Services\Geoguessr;
 
+use App\Models\OutgoingApiCall;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class GeoguessrClient
 {
+    private string $source = 'geoguessr';
+
+    private ?int $cronRunId = null;
+
+    private ?int $geoguesserId = null;
+
     public function __construct(private readonly string $baseUrl = 'https://www.geoguessr.com') {}
+
+    public function using(string $source, ?int $cronRunId = null, ?int $geoguesserId = null): self
+    {
+        $this->source = $source;
+        $this->cronRunId = $cronRunId;
+        $this->geoguesserId = $geoguesserId;
+
+        return $this;
+    }
 
     /**
      * @return array<string, mixed>
@@ -45,24 +65,86 @@ class GeoguessrClient
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, mixed>|list<mixed>
      */
     private function get(string $path, string $ncfa): array
     {
-        $response = Http::acceptJson()
-            ->timeout(20)
-            ->withHeaders([
-                'Cookie' => '_ncfa='.self::normalizeNcfa($ncfa),
-            ])
-            ->withOptions([
-                'proxy' => '',
-            ])
-            ->get($this->baseUrl.$path)
-            ->throw();
+        $url = $this->baseUrl.$path;
+        $started = hrtime(true);
+        $status = null;
+        $succeeded = false;
+        $error = null;
+        $responsePayload = null;
 
-        /** @var array<string, mixed> $json */
+        try {
+            $response = Http::acceptJson()
+                ->timeout(20)
+                ->withHeaders([
+                    'Cookie' => '_ncfa='.self::normalizeNcfa($ncfa),
+                ])
+                ->withOptions([
+                    'proxy' => '',
+                ])
+                ->get($url);
+
+            $status = $response->status();
+            $responsePayload = $this->payload($response);
+            $response->throw();
+            $succeeded = true;
+
+            return $responsePayload;
+        } catch (RequestException $exception) {
+            $status = $exception->response?->status() ?? $status;
+            $error = $exception->getMessage();
+            $responsePayload = $exception->response ? $this->payload($exception->response) : $responsePayload;
+
+            throw $exception;
+        } catch (ConnectionException $exception) {
+            $error = $exception->getMessage();
+
+            throw $exception;
+        } finally {
+            $this->recordCall(
+                url: $url,
+                status: $status,
+                succeeded: $succeeded,
+                durationMs: (int) ((hrtime(true) - $started) / 1_000_000),
+                error: $error,
+                response: $responsePayload,
+            );
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|list<mixed>
+     */
+    private function payload(Response $response): array
+    {
         $json = $response->json();
 
-        return $json;
+        if (is_array($json)) {
+            return $json;
+        }
+
+        return ['body' => Str::limit($response->body(), 10_000)];
+    }
+
+    /**
+     * @param  array<string, mixed>|list<mixed>|null  $response
+     */
+    private function recordCall(string $url, ?int $status, bool $succeeded, int $durationMs, ?string $error, ?array $response): void
+    {
+        OutgoingApiCall::query()->create([
+            'source' => $this->source,
+            'method' => 'GET',
+            'url' => $url,
+            'status_code' => $status,
+            'succeeded' => $succeeded,
+            'duration_ms' => $durationMs,
+            'error_message' => $error,
+            'response' => $response,
+            'cron_run_id' => $this->cronRunId,
+            'geoguesser_id' => $this->geoguesserId,
+        ]);
     }
 }

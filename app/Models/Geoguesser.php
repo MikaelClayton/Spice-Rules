@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'username',
     'ncfa',
     'daily_challenge_progress',
-    'progress',
     'daily_challenge_streak',
     'daily_challenge_current_streak',
     'is_active',
@@ -32,7 +31,6 @@ class Geoguesser extends Model
     protected function casts(): array
     {
         return [
-            'progress' => 'array',
             'daily_challenge_progress' => 'integer',
             'daily_challenge_streak' => 'integer',
             'daily_challenge_current_streak' => 'integer',
@@ -66,7 +64,6 @@ class Geoguesser extends Model
         $this->fill([
             'username' => $user['nick'] ?? $this->username,
             'daily_challenge_progress' => $user['dailyChallengeProgress'] ?? $this->daily_challenge_progress,
-            'progress' => $user['progress'] ?? $this->progress,
         ]);
     }
 }

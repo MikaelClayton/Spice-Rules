@@ -393,6 +393,10 @@ function metricLabel(metric) {
         return 'Steps';
     }
 
+    if (metric === 'xp') {
+        return 'XP';
+    }
+
     return 'Score';
 }
 
@@ -403,6 +407,10 @@ function formatMetric(value, metric) {
 
     if (metric === 'distance') {
         return `${(value / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} km`;
+    }
+
+    if (metric === 'xp') {
+        return `${Math.round(value).toLocaleString()} XP`;
     }
 
     return Math.round(value).toLocaleString();

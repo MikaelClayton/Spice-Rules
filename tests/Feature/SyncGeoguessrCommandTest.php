@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\CronRun;
 use App\Models\Geoguesser;
+use App\Models\GeoguesserChallenge;
+use App\Models\OutgoingApiCall;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -36,6 +39,9 @@ class SyncGeoguessrCommandTest extends TestCase
                     'progress' => [
                         'xp' => 5763,
                         'level' => 18,
+                        'levelXp' => 5670,
+                        'nextLevel' => 19,
+                        'nextLevelXp' => 6390,
                     ],
                 ],
             ]),
@@ -79,7 +85,6 @@ class SyncGeoguessrCommandTest extends TestCase
 
         $this->assertSame('CoastalRiver217', $active->username);
         $this->assertSame(15, $active->daily_challenge_progress);
-        $this->assertSame(18, $active->progress['level']);
         $this->assertSame(6, $active->daily_challenge_streak);
         $this->assertSame(4, $active->daily_challenge_current_streak);
 
@@ -93,6 +98,41 @@ class SyncGeoguessrCommandTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('geoguesser_challenges', 1);
+        $this->assertSame(5763, $active->challenges()->first()?->progress['xp'] ?? null);
+        $this->assertSame(18, $active->challenges()->first()?->progress['level'] ?? null);
+
+        $this->assertDatabaseHas('cron_runs', [
+            'command' => 'geoguessr:sync',
+            'status' => 'success',
+            'profiles_synced' => 1,
+        ]);
+        $this->assertGreaterThanOrEqual(0, CronRun::query()->value('duration_ms'));
+        $this->assertDatabaseCount('outgoing_api_calls', 3);
+        $this->assertDatabaseHas('outgoing_api_calls', [
+            'source' => 'geoguessr_sync',
+            'url' => 'https://www.geoguessr.com/api/v3/profiles',
+            'status_code' => 200,
+            'succeeded' => true,
+            'geoguesser_id' => $active->id,
+        ]);
+        $this->assertDatabaseHas('outgoing_api_calls', [
+            'source' => 'geoguessr_sync',
+            'url' => 'https://www.geoguessr.com/api/v3/challenges/daily-challenges/me/week',
+            'succeeded' => true,
+        ]);
+        $this->assertDatabaseHas('outgoing_api_calls', [
+            'source' => 'geoguessr_sync',
+            'url' => 'https://www.geoguessr.com/api/v3/profiles/stats',
+            'succeeded' => true,
+        ]);
+        $this->assertSame(
+            'CoastalRiver217',
+            OutgoingApiCall::query()->where('url', 'https://www.geoguessr.com/api/v3/profiles')->first()?->response['user']['nick'] ?? null,
+        );
+        $this->assertSame(
+            6,
+            OutgoingApiCall::query()->where('url', 'https://www.geoguessr.com/api/v3/profiles/stats')->first()?->response['dailyChallengeStreak'] ?? null,
+        );
     }
 
     public function test_it_skips_failed_geoguessr_requests(): void
@@ -110,5 +150,89 @@ class SyncGeoguessrCommandTest extends TestCase
         $this->artisan('geoguessr:sync')
             ->expectsOutput('Synced 0 GeoGuessr profile(s).')
             ->assertSuccessful();
+
+        $this->assertDatabaseHas('cron_runs', [
+            'command' => 'geoguessr:sync',
+            'status' => 'success',
+            'profiles_synced' => 0,
+        ]);
+        $this->assertDatabaseHas('outgoing_api_calls', [
+            'source' => 'geoguessr_sync',
+            'url' => 'https://www.geoguessr.com/api/v3/profiles',
+            'status_code' => 401,
+            'succeeded' => false,
+        ]);
+        $this->assertDatabaseCount('outgoing_api_calls', 1);
+        $this->assertSame(
+            'Unauthorized',
+            OutgoingApiCall::query()->first()?->response['message'] ?? null,
+        );
+    }
+
+    public function test_it_snapshots_progress_on_todays_challenge_only(): void
+    {
+        $geoguesser = Geoguesser::factory()->create([
+            'user_id' => User::factory(),
+            'ncfa' => 'test-ncfa',
+            'is_active' => true,
+        ]);
+
+        $past = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $geoguesser->id,
+            'challenge_token' => 'old-token',
+            'progress' => [
+                'xp' => 4100,
+                'level' => 16,
+            ],
+        ]);
+
+        Http::fake([
+            'https://www.geoguessr.com/api/v3/profiles' => Http::response([
+                'user' => [
+                    'nick' => 'CoastalRiver217',
+                    'progress' => [
+                        'xp' => 5763,
+                        'level' => 18,
+                    ],
+                ],
+            ]),
+            'https://www.geoguessr.com/api/v3/challenges/daily-challenges/me/week' => Http::response([
+                [
+                    'dayOfWeek' => 4,
+                    'challengeToken' => 'old-token',
+                    'isToday' => false,
+                    'gameResult' => [
+                        'id' => 'old-guid',
+                        'totalScore' => 10000,
+                        'totalDistance' => 1000,
+                        'totalStepsCount' => 10,
+                    ],
+                ],
+                [
+                    'dayOfWeek' => 5,
+                    'challengeToken' => 'today-token',
+                    'isToday' => true,
+                    'gameResult' => [
+                        'id' => 'today-guid',
+                        'totalScore' => 13801,
+                        'totalDistance' => 2000,
+                        'totalStepsCount' => 20,
+                    ],
+                ],
+            ]),
+            'https://www.geoguessr.com/api/v3/profiles/stats' => Http::response([
+                'dailyChallengeStreak' => 1,
+                'dailyChallengeCurrentStreak' => 1,
+                'dailyChallengesRolling7Days' => [],
+            ]),
+        ]);
+
+        $this->artisan('geoguessr:sync')->assertSuccessful();
+
+        $past->refresh();
+        $today = $geoguesser->challenges()->where('challenge_token', 'today-token')->first();
+
+        $this->assertSame(4100, $past->progress['xp'] ?? null);
+        $this->assertSame(5763, $today?->progress['xp'] ?? null);
     }
 }

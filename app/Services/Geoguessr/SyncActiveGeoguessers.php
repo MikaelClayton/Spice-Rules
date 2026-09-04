@@ -2,6 +2,7 @@
 
 namespace App\Services\Geoguessr;
 
+use App\Models\CronRun;
 use App\Models\Geoguesser;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
@@ -12,7 +13,7 @@ class SyncActiveGeoguessers
 {
     public function __construct(private readonly GeoguessrClient $client) {}
 
-    public function handle(): int
+    public function handle(?CronRun $cronRun = null): int
     {
         $synced = 0;
 
@@ -24,7 +25,7 @@ class SyncActiveGeoguessers
 
         foreach ($geoguessers as $geoguesser) {
             try {
-                $this->sync($geoguesser);
+                $this->sync($geoguesser, $cronRun);
                 $synced++;
             } catch (RequestException|ConnectionException $exception) {
                 Log::warning('GeoGuessr sync failed', [
@@ -37,12 +38,15 @@ class SyncActiveGeoguessers
         return $synced;
     }
 
-    public function sync(Geoguesser $geoguesser): void
+    public function sync(Geoguesser $geoguesser, ?CronRun $cronRun = null): void
     {
         $ncfa = (string) $geoguesser->ncfa;
 
-        $this->syncProfile($geoguesser, $this->client->profile($ncfa));
-        $this->syncWeek($geoguesser, $this->client->weeklyDailyChallenges($ncfa));
+        $this->client->using('geoguessr_sync', $cronRun?->id, $geoguesser->id);
+
+        $profile = $this->client->profile($ncfa);
+        $this->syncProfile($geoguesser, $profile);
+        $this->syncWeek($geoguesser, $this->client->weeklyDailyChallenges($ncfa), $this->progressFromProfile($profile));
         $this->syncStats($geoguesser, $this->client->stats($ncfa));
     }
 
@@ -57,8 +61,9 @@ class SyncActiveGeoguessers
 
     /**
      * @param  list<array<string, mixed>>  $days
+     * @param  array<string, mixed>|null  $progress
      */
-    private function syncWeek(Geoguesser $geoguesser, array $days): void
+    private function syncWeek(Geoguesser $geoguesser, array $days, ?array $progress): void
     {
         foreach ($days as $day) {
             $token = $day['challengeToken'] ?? null;
@@ -68,15 +73,22 @@ class SyncActiveGeoguessers
                 continue;
             }
 
+            $attemptedAt = $this->dateForDayOfWeek((int) ($day['dayOfWeek'] ?? 0));
+            $values = [
+                'attempted_at' => $attemptedAt,
+                'total_score' => $result['totalScore'] ?? null,
+                'geoguesser_guid' => $result['id'] ?? null,
+                'total_distance' => isset($result['totalDistance']) ? (int) round((float) $result['totalDistance']) : null,
+                'total_steps_count' => $result['totalStepsCount'] ?? null,
+            ];
+
+            if ($progress !== null && (($day['isToday'] ?? false) === true || $attemptedAt->isToday())) {
+                $values['progress'] = $progress;
+            }
+
             $geoguesser->challenges()->updateOrCreate(
                 ['challenge_token' => $token],
-                [
-                    'attempted_at' => $this->dateForDayOfWeek((int) ($day['dayOfWeek'] ?? 0)),
-                    'total_score' => $result['totalScore'] ?? null,
-                    'geoguesser_guid' => $result['id'] ?? null,
-                    'total_distance' => isset($result['totalDistance']) ? (int) round((float) $result['totalDistance']) : null,
-                    'total_steps_count' => $result['totalStepsCount'] ?? null,
-                ],
+                $values,
             );
         }
     }
@@ -118,6 +130,18 @@ class SyncActiveGeoguessers
                     : $challenge->total_distance,
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $profile
+     * @return array<string, mixed>|null
+     */
+    private function progressFromProfile(array $profile): ?array
+    {
+        $user = is_array($profile['user'] ?? null) ? $profile['user'] : $profile;
+        $progress = $user['progress'] ?? null;
+
+        return is_array($progress) ? $progress : null;
     }
 
     private function dateForDayOfWeek(int $dayOfWeek): Carbon

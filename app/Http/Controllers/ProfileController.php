@@ -56,7 +56,9 @@ class ProfileController extends Controller
         $geoguesser->ncfa = $ncfa;
 
         try {
-            $geoguesser->applyFromProfile($client->profile($ncfa));
+            $geoguesser->applyFromProfile(
+                $client->using('cookie_test', geoguesserId: $geoguesser->id)->profile($ncfa),
+            );
             $geoguesser->is_active = true;
             $geoguesser->save();
         } catch (RequestException $exception) {

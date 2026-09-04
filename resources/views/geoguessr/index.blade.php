@@ -12,6 +12,35 @@
         <p class="mt-1 text-base-content/70">How everyone did on {{ $date->toFormattedDateString() }}.</p>
     </div>
 
+    @if (($progress['level'] ?? null) || ($progress['xp'] ?? null))
+        <section class="card bg-base-100 shadow-xl mb-5">
+            <div class="card-body gap-3 p-4 sm:p-5">
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Level</p>
+                        <p class="text-4xl font-bold tabular-nums leading-none">{{ $progress['level'] }}</p>
+                    </div>
+                    <div class="sm:text-right">
+                        @if (isset($progress['nextLevel']))
+                            <p class="text-sm text-base-content/60">Next level {{ $progress['nextLevel'] }}</p>
+                        @endif
+                        <p class="text-lg font-semibold tabular-nums">
+                            {{ isset($progress['xp']) ? number_format($progress['xp']) : '—' }}
+                            @if (isset($progress['nextLevelXp']))
+                                <span class="font-medium text-base-content/50">/</span>
+                                {{ number_format($progress['nextLevelXp']) }}
+                            @endif
+                            XP
+                        </p>
+                    </div>
+                </div>
+                @if (isset($progress['percent']))
+                    <progress class="progress progress-primary w-full" value="{{ $progress['percent'] }}" max="100"></progress>
+                @endif
+            </div>
+        </section>
+    @endif
+
     <div class="tabs tabs-box tabs-lg w-full" data-geoguessr-board>
         <input
             type="radio"
@@ -112,6 +141,7 @@
                         <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Metric</p>
                         <div class="mt-2 flex gap-2 overflow-x-auto pb-1" data-filter-group="metric">
                             <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="score">Score</button>
+                            <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="xp">XP</button>
                             <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="distance">Distance</button>
                             <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="steps">Steps</button>
                         </div>

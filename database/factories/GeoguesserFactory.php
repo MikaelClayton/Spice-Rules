@@ -21,7 +21,6 @@ class GeoguesserFactory extends Factory
             'username' => fake()->userName(),
             'ncfa' => null,
             'daily_challenge_progress' => 0,
-            'progress' => null,
             'daily_challenge_streak' => 0,
             'daily_challenge_current_streak' => 0,
             'is_active' => true,

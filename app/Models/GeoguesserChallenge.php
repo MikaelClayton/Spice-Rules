@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'geoguesser_guid',
     'total_distance',
     'total_steps_count',
+    'progress',
 ])]
 class GeoguesserChallenge extends Model
 {
@@ -32,6 +33,7 @@ class GeoguesserChallenge extends Model
             'total_score' => 'integer',
             'total_distance' => 'integer',
             'total_steps_count' => 'integer',
+            'progress' => 'array',
         ];
     }
 

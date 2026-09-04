@@ -30,6 +30,7 @@ class GeoguessrController extends Controller
             'date' => today(),
             'activeTab' => request()->string('tab')->toString() === 'graphs' ? 'graphs' : 'today',
             'board' => $this->boardPayload($history),
+            'progress' => $this->viewerProgress(Auth::user()?->geoguesser),
         ]);
     }
 
@@ -61,7 +62,43 @@ class GeoguessrController extends Controller
                 'score' => $challenge->total_score,
                 'distance' => $challenge->total_distance,
                 'steps' => $challenge->total_steps_count,
+                'xp' => $this->arrayValue($challenge->progress, 'xp'),
             ])->values()->all(),
         ];
+    }
+
+    /**
+     * @return array{level: mixed, xp: int|null, nextLevel: mixed, nextLevelXp: int|null, percent: int|null}
+     */
+    private function viewerProgress(?Geoguesser $geoguesser): array
+    {
+        $progress = $geoguesser?->challenges()
+            ->whereNotNull('progress')
+            ->orderByDesc('attempted_at')
+            ->first()
+            ?->progress ?? [];
+        $xp = $this->arrayValue($progress, 'xp');
+        $levelXp = $this->arrayValue($progress, 'levelXp');
+        $nextLevelXp = $this->arrayValue($progress, 'nextLevelXp');
+        $span = $nextLevelXp !== null && $levelXp !== null ? max($nextLevelXp - $levelXp, 1) : null;
+        $earned = $xp !== null && $levelXp !== null ? max($xp - $levelXp, 0) : null;
+
+        return [
+            'level' => $progress['level'] ?? null,
+            'xp' => $xp,
+            'nextLevel' => $progress['nextLevel'] ?? null,
+            'nextLevelXp' => $nextLevelXp,
+            'percent' => $span !== null && $earned !== null ? min(100, (int) round(100 * $earned / $span)) : null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $values
+     */
+    private function arrayValue(?array $values, string $key): ?int
+    {
+        $value = $values[$key] ?? null;
+
+        return is_numeric($value) ? (int) $value : null;
     }
 }

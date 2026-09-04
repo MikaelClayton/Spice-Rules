@@ -24,6 +24,7 @@ class GeoguesserChallengeFactory extends Factory
             'geoguesser_guid' => fake()->uuid(),
             'total_distance' => fake()->numberBetween(0, 20000000),
             'total_steps_count' => fake()->numberBetween(0, 20000),
+            'progress' => null,
         ];
     }
 }

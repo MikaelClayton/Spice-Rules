@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Geoguesser;
+use App\Models\OutgoingApiCall;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
@@ -140,6 +141,19 @@ class ProfileTest extends TestCase
             'daily_challenge_progress' => 15,
             'is_active' => true,
         ]);
+
+        $this->assertDatabaseHas('outgoing_api_calls', [
+            'source' => 'cookie_test',
+            'method' => 'GET',
+            'url' => 'https://www.geoguessr.com/api/v3/profiles',
+            'status_code' => 200,
+            'succeeded' => true,
+        ]);
+        $this->assertDatabaseCount('outgoing_api_calls', 1);
+        $this->assertSame(
+            'CoastalRiver217',
+            OutgoingApiCall::query()->first()?->response['user']['nick'] ?? null,
+        );
     }
 
     public function test_a_failed_test_does_not_activate_geoguessr(): void
@@ -162,6 +176,17 @@ class ProfileTest extends TestCase
             'user_id' => $user->id,
             'is_active' => false,
         ]);
+
+        $this->assertDatabaseHas('outgoing_api_calls', [
+            'source' => 'cookie_test',
+            'url' => 'https://www.geoguessr.com/api/v3/profiles',
+            'status_code' => 401,
+            'succeeded' => false,
+        ]);
+        $this->assertSame(
+            'Unauthorized',
+            OutgoingApiCall::query()->first()?->response['message'] ?? null,
+        );
     }
 
     public function test_a_connection_failure_does_not_crash_the_profile(): void
@@ -183,6 +208,13 @@ class ProfileTest extends TestCase
         $this->assertDatabaseHas('geoguessers', [
             'user_id' => $user->id,
             'ncfa' => 'any-token',
+        ]);
+
+        $this->assertDatabaseHas('outgoing_api_calls', [
+            'source' => 'cookie_test',
+            'url' => 'https://www.geoguessr.com/api/v3/profiles',
+            'status_code' => null,
+            'succeeded' => false,
         ]);
     }
 }

@@ -49,6 +49,34 @@ class GeoguessrResultTest extends TestCase
             ->assertDontSee('Log your score');
     }
 
+    public function test_progress_heading_shows_level_and_xp(): void
+    {
+        $viewer = User::factory()->create();
+        $geoguesser = Geoguesser::factory()->create(['user_id' => $viewer->id]);
+
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $geoguesser->id,
+            'attempted_at' => now(),
+            'progress' => [
+                'xp' => 5763,
+                'level' => 18,
+                'levelXp' => 5670,
+                'nextLevel' => 19,
+                'nextLevelXp' => 6390,
+            ],
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index'))
+            ->assertOk()
+            ->assertSee('Level')
+            ->assertSee('18')
+            ->assertSee('5,763')
+            ->assertSee('6,390')
+            ->assertSee('Next level 19')
+            ->assertSee('XP');
+    }
+
     public function test_graphs_include_historical_players_and_scores(): void
     {
         $viewer = User::factory()->create();
@@ -60,6 +88,10 @@ class GeoguessrResultTest extends TestCase
             'total_score' => 9900,
             'total_distance' => 2500000,
             'total_steps_count' => 88,
+            'progress' => [
+                'xp' => 4100,
+                'level' => 16,
+            ],
         ]);
 
         $this->actingAs($viewer)
@@ -67,6 +99,8 @@ class GeoguessrResultTest extends TestCase
             ->assertOk()
             ->assertSee('Historical Hank')
             ->assertSee('Everyone')
+            ->assertSee('XP')
+            ->assertSee('4100')
             ->assertSee('9900')
             ->assertSee('2500000');
     }
