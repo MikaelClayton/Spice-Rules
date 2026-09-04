@@ -1,6 +1,87 @@
 @import 'tailwindcss';
+
 @plugin "daisyui" {
-    themes: sunset --default, coffee --prefersdark;
+    themes: false;
+}
+
+@plugin "daisyui/theme" {
+    name: "spice";
+    default: true;
+    color-scheme: light;
+
+    --color-base-100: #fffdf6;
+    --color-base-200: #f7f0df;
+    --color-base-300: #ead9b4;
+    --color-base-content: #1c1c1c;
+
+    --color-primary: #d82820;
+    --color-primary-content: #fffdf6;
+
+    --color-secondary: #fec523;
+    --color-secondary-content: #1c1c1c;
+
+    --color-accent: #283030;
+    --color-accent-content: #fffdf6;
+
+    --color-neutral: #283030;
+    --color-neutral-content: #fffdf6;
+
+    --color-info: #2f6f8f;
+    --color-info-content: #fffdf6;
+
+    --color-success: #2f7d4a;
+    --color-success-content: #fffdf6;
+
+    --color-warning: #fec523;
+    --color-warning-content: #1c1c1c;
+
+    --color-error: #d82820;
+    --color-error-content: #fffdf6;
+
+    --radius-selector: 0.5rem;
+    --radius-field: 0.5rem;
+    --radius-box: 1rem;
+    --border: 1px;
+}
+
+@plugin "daisyui/theme" {
+    name: "spice-dark";
+    prefersdark: true;
+    color-scheme: dark;
+
+    --color-base-100: #241c18;
+    --color-base-200: #1a1411;
+    --color-base-300: #3a2c24;
+    --color-base-content: #fdfaf1;
+
+    --color-primary: #d82820;
+    --color-primary-content: #fffdf6;
+
+    --color-secondary: #fec523;
+    --color-secondary-content: #1c1c1c;
+
+    --color-accent: #fec523;
+    --color-accent-content: #1c1c1c;
+
+    --color-neutral: #fdfaf1;
+    --color-neutral-content: #1c1c1c;
+
+    --color-info: #7eb6d4;
+    --color-info-content: #102028;
+
+    --color-success: #6fbf86;
+    --color-success-content: #102016;
+
+    --color-warning: #fec523;
+    --color-warning-content: #1c1c1c;
+
+    --color-error: #ff6b63;
+    --color-error-content: #2a0c0c;
+
+    --radius-selector: 0.5rem;
+    --radius-field: 0.5rem;
+    --radius-box: 1rem;
+    --border: 1px;
 }
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -11,4 +92,10 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+.input:not(.input-ghost),
+.textarea:not(.textarea-ghost) {
+    --input-color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
+    border: 1px solid var(--input-color);
 }

@@ -15,12 +15,19 @@ if (root && dataNode) {
         compare: null,
     };
 
-    const palette = ['#FF8906', '#E53170', '#F25F4C', '#2CB67D', '#7F5AF0', '#FBBF24', '#3DA9FC'];
-    const theme = readTheme();
+    const palette = ['#D82820', '#FEC523', '#283030', '#E85D04', '#9B2226', '#2A9D8F', '#F4A261'];
+    const content = cssVarColor('--color-base-content');
+    const theme = {
+        text: content,
+        muted: withAlpha(content, 0.72),
+        grid: withAlpha(content, 0.14),
+        primary: '#D82820',
+    };
 
-    Chart.defaults.color = theme.muted;
+    Chart.defaults.color = theme.text;
     Chart.defaults.borderColor = theme.grid;
     Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.font.size = 12;
 
     const draw = () => render(root, board, state, charts, theme, palette);
 
@@ -34,32 +41,24 @@ if (root && dataNode) {
     }
 }
 
-function readTheme() {
-    const styles = getComputedStyle(document.documentElement);
-    const content = styles.getPropertyValue('--color-base-content').trim() || '255 255 255';
-    const primary = styles.getPropertyValue('--color-primary').trim() || '#FF8906';
+function cssVarColor(name) {
+    const probe = document.createElement('span');
+    probe.style.color = `var(${name})`;
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
 
-    return {
-        text: cssColor(content, 0.92),
-        muted: cssColor(content, 0.62),
-        grid: cssColor(content, 0.12),
-        fill: cssColor(content, 0.16),
-        primary,
-    };
+    return color || '#1c1c1c';
 }
 
-function cssColor(value, alpha) {
-    if (value.startsWith('#') || value.startsWith('rgb')) {
-        return value;
+function withAlpha(color, alpha) {
+    const parts = color.match(/[\d.]+/g);
+
+    if (!parts || parts.length < 3) {
+        return color;
     }
 
-    const parts = value.split(/[\s,/]+/).filter(Boolean);
-
-    if (parts.length >= 3) {
-        return `rgb(${parts[0]} ${parts[1]} ${parts[2]} / ${alpha})`;
-    }
-
-    return `rgb(255 255 255 / ${alpha})`;
+    return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
 }
 
 function bindTabs(rootEl, onShowGraphs) {
@@ -192,7 +191,7 @@ function renderStats(rootEl, rows, players, state) {
             (card) => `
             <article class="card bg-base-100 shadow-xl">
                 <div class="card-body gap-1 p-4">
-                    <p class="text-xs uppercase tracking-wide text-base-content/50">${card.label}</p>
+                    <p class="text-xs uppercase tracking-wide text-base-content/60">${card.label}</p>
                     <p class="text-xl font-bold tabular-nums">${card.value}</p>
                 </div>
             </article>
@@ -329,7 +328,7 @@ function chartOptions(theme, metric, horizontal) {
                 labels: {
                     boxWidth: 10,
                     padding: 16,
-                    color: theme.muted,
+                    color: theme.text,
                 },
             },
             tooltip: {
@@ -357,11 +356,20 @@ function axisOptions(theme, metric, isMetricAxis) {
             color: theme.grid,
             drawBorder: false,
         },
-        ticks: {
-            color: theme.muted,
-            maxTicksLimit: 5,
-            callback: isMetricAxis ? (value) => formatCompact(value, metric) : undefined,
-        },
+        ticks: isMetricAxis
+            ? {
+                color: theme.text,
+                maxTicksLimit: 5,
+                callback: (value) => formatCompact(value, metric),
+            }
+            : {
+                color: theme.text,
+                autoSkip: false,
+                maxRotation: 0,
+                callback(value) {
+                    return this.getLabelForValue(value);
+                },
+            },
     };
 }
 

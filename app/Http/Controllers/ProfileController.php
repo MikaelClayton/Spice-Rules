@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateGeoguessrSettingsRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Geoguesser;
 use App\Services\Geoguessr\GeoguessrClient;
 use Illuminate\Http\Client\ConnectionException;
@@ -16,8 +17,31 @@ class ProfileController extends Controller
     public function edit(): View
     {
         return view('profile.edit', [
+            'user' => request()->user(),
             'geoguesser' => request()->user()->geoguesser,
+            'activeTab' => request()->string('tab')->toString() === 'geoguessr' ? 'geoguessr' : 'account',
         ]);
+    }
+
+    public function update(UpdateProfileRequest $request): RedirectResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        $user->fill([
+            'name' => $data['name'],
+            'email' => $data['email'],
+        ]);
+
+        if (filled($data['password'] ?? null)) {
+            $user->password = $data['password'];
+        }
+
+        $user->save();
+
+        return redirect()
+            ->route('profile.edit')
+            ->with('status', 'Your details were saved.');
     }
 
     public function updateGeoguessr(UpdateGeoguessrSettingsRequest $request, GeoguessrClient $client): RedirectResponse
@@ -45,7 +69,7 @@ class ProfileController extends Controller
             ]);
 
             return redirect()
-                ->route('profile.edit')
+                ->route('profile.edit', ['tab' => 'geoguessr'])
                 ->withInput()
                 ->withErrors(['ncfa' => 'GeoGuessr rejected this _ncfa cookie. Copy the Value again from DevTools and try Test.']);
         } catch (ConnectionException $exception) {
@@ -57,7 +81,7 @@ class ProfileController extends Controller
             ]);
 
             return redirect()
-                ->route('profile.edit')
+                ->route('profile.edit', ['tab' => 'geoguessr'])
                 ->withInput()
                 ->withErrors(['ncfa' => 'This app server could not reach GeoGuessr. Run `php artisan serve` in your own terminal (not Cursor) and try Test again, or run `php artisan geoguessr:sync`.']);
         } catch (\Throwable $exception) {
@@ -69,13 +93,13 @@ class ProfileController extends Controller
             ]);
 
             return redirect()
-                ->route('profile.edit')
+                ->route('profile.edit', ['tab' => 'geoguessr'])
                 ->withInput()
                 ->withErrors(['ncfa' => 'Could not verify the cookie. Check the log and try Test again.']);
         }
 
         return redirect()
-            ->route('profile.edit')
+            ->route('profile.edit', ['tab' => 'geoguessr'])
             ->with('status', 'GeoGuessr is active. Profile data was saved.');
     }
 }

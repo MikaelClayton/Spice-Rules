@@ -124,7 +124,7 @@
             <section class="card bg-base-100 shadow-xl">
                 <div class="card-body p-4">
                     <h2 class="card-title text-base">Trend</h2>
-                    <p class="text-sm text-base-content/60">Daily challenge over time.</p>
+                    <p class="text-sm text-base-content/70">Daily challenge over time.</p>
                     <div class="relative mt-2 h-56">
                         <canvas data-chart="trend"></canvas>
                     </div>
@@ -135,7 +135,7 @@
             <section class="card bg-base-100 shadow-xl">
                 <div class="card-body p-4">
                     <h2 class="card-title text-base" data-compare-title>Compare</h2>
-                    <p class="text-sm text-base-content/60" data-compare-copy>Average for each player.</p>
+                    <p class="text-sm text-base-content/70" data-compare-copy>Average for each player.</p>
                     <div class="relative mt-2 h-56">
                         <canvas data-chart="compare"></canvas>
                     </div>

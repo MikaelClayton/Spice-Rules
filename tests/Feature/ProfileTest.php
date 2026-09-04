@@ -6,6 +6,7 @@ use App\Models\Geoguesser;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -18,19 +19,80 @@ class ProfileTest extends TestCase
         $this->get(route('profile.edit'))->assertRedirect(route('login'));
     }
 
-    public function test_authenticated_users_can_view_the_geoguessr_profile_section(): void
+    public function test_authenticated_users_can_view_account_and_geoguessr_tabs(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'name' => 'Mikael Clayton',
+            'email' => 'mikael@example.com',
+        ]);
 
         $this->actingAs($user)
             ->get(route('profile.edit'))
             ->assertOk()
+            ->assertSee('Account')
+            ->assertSee('Your details')
+            ->assertSee('Mikael Clayton')
+            ->assertSee('mikael@example.com')
             ->assertSee('GeoGuessr')
             ->assertSee('_ncfa')
             ->assertSee('Active')
             ->assertSee('Test')
             ->assertSee('How to get your _ncfa')
             ->assertSee('youtube.com/watch?v=XSfTz9SZjTM');
+    }
+
+    public function test_users_can_update_their_details(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Old Name',
+            'email' => 'old@example.com',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('profile.update'), [
+                'name' => 'New Name',
+                'email' => 'new@example.com',
+            ])
+            ->assertRedirect(route('profile.edit'));
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'New Name',
+            'email' => 'new@example.com',
+        ]);
+    }
+
+    public function test_users_can_change_their_password(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patch(route('profile.update'), [
+                'name' => $user->name,
+                'email' => $user->email,
+                'password' => 'new-password',
+                'password_confirmation' => 'new-password',
+            ])
+            ->assertRedirect(route('profile.edit'));
+
+        $user->refresh();
+
+        $this->assertTrue(Hash::check('new-password', $user->password));
+    }
+
+    public function test_email_must_stay_unique(): void
+    {
+        $user = User::factory()->create(['email' => 'me@example.com']);
+        User::factory()->create(['email' => 'taken@example.com']);
+
+        $this->actingAs($user)
+            ->from(route('profile.edit'))
+            ->patch(route('profile.update'), [
+                'name' => $user->name,
+                'email' => 'taken@example.com',
+            ])
+            ->assertRedirect(route('profile.edit'))
+            ->assertSessionHasErrors('email');
     }
 
     public function test_saved_ncfa_is_shown_on_the_profile(): void
@@ -69,7 +131,7 @@ class ProfileTest extends TestCase
             ->post(route('profile.geoguessr.update'), [
                 'ncfa' => '  test-ncfa-token  ',
             ])
-            ->assertRedirect(route('profile.edit'));
+            ->assertRedirect(route('profile.edit', ['tab' => 'geoguessr']));
 
         $this->assertDatabaseHas('geoguessers', [
             'user_id' => $user->id,
@@ -93,7 +155,7 @@ class ProfileTest extends TestCase
             ->post(route('profile.geoguessr.update'), [
                 'ncfa' => 'bad-token',
             ])
-            ->assertRedirect(route('profile.edit'))
+            ->assertRedirect(route('profile.edit', ['tab' => 'geoguessr']))
             ->assertSessionHasErrors('ncfa');
 
         $this->assertDatabaseHas('geoguessers', [
@@ -115,7 +177,7 @@ class ProfileTest extends TestCase
             ->post(route('profile.geoguessr.update'), [
                 'ncfa' => '_ncfa=any-token',
             ])
-            ->assertRedirect(route('profile.edit'))
+            ->assertRedirect(route('profile.edit', ['tab' => 'geoguessr']))
             ->assertSessionHasErrors('ncfa');
 
         $this->assertDatabaseHas('geoguessers', [

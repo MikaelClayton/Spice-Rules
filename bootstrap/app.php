@@ -17,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(fn () => route('dashboard'));
     })
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('geoguessr:sync')->everyFiveMinutes();
+        $schedule->command('geoguessr:sync')->everyThirtyMinutes();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -8,6 +8,12 @@
             <h1 class="card-title text-2xl">Welcome back</h1>
             <p class="text-base-content/70">Log in to continue to {{ config('app.name') }}.</p>
 
+            @if (session('status'))
+                <div role="alert" class="alert alert-success">
+                    <span>{{ session('status') }}</span>
+                </div>
+            @endif
+
             @if ($errors->any())
                 <div role="alert" class="alert alert-error">
                     <span>{{ $errors->first() }}</span>
@@ -43,10 +49,13 @@
                     >
                 </fieldset>
 
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="remember" class="checkbox checkbox-primary" {{ old('remember') ? 'checked' : '' }}>
-                    Remember me
-                </label>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="remember" class="checkbox checkbox-primary" {{ old('remember') ? 'checked' : '' }}>
+                        Remember me
+                    </label>
+                    <a href="{{ route('password.request') }}" class="link link-primary text-sm">Forgot password?</a>
+                </div>
 
                 <button type="submit" class="btn btn-primary w-full">Log in</button>
             </form>
