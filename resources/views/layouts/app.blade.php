@@ -22,18 +22,18 @@
                     <div tabindex="0" role="button" class="btn btn-ghost">
                         {{ Auth::user()->name }}
                     </div>
-                    <ul tabindex="0" class="menu dropdown-content z-10 mt-3 w-52 rounded-box bg-base-100 p-2 shadow-lg">
+                    <ul tabindex="0" class="menu dropdown-content z-50 mt-3 w-52 rounded-box bg-base-100 p-2 shadow-lg">
                         <li>
                             <a href="{{ route('profile.edit') }}">Profile</a>
                         </li>
                         <li>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="w-full text-left">Log out</button>
-                            </form>
+                            <button type="submit" form="logout-form" onmousedown="event.preventDefault()">Log out</button>
                         </li>
                     </ul>
                 </div>
+                <form id="logout-form" method="POST" action="{{ route('logout') }}" class="hidden">
+                    @csrf
+                </form>
             </div>
         </div>
 
