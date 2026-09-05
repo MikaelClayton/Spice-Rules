@@ -44,6 +44,12 @@ Pull profiles, weekly dailies, and streaks for active players that have an `_ncf
 php artisan geoguessr:sync
 ```
 
+If today's daily is already saved with rounds, that profile is skipped. Refresh anyway with:
+
+```bash
+php artisan geoguessr:sync --force
+```
+
 On the VPS this also runs every 30 minutes via the Laravel scheduler. The scheduler itself is triggered every minute:
 
 ```bash

@@ -31,6 +31,7 @@ class ProfileController extends Controller
         $user->fill([
             'name' => $data['name'],
             'email' => $data['email'],
+            'color' => $data['color'] ?? $user->color,
         ]);
 
         if (filled($data['password'] ?? null)) {

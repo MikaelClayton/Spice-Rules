@@ -29,6 +29,7 @@ class UpdateProfileRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($this->user()?->id),
             ],
             'password' => ['nullable', 'confirmed', Password::defaults()],
+            'color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
 }

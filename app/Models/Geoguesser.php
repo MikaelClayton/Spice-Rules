@@ -54,6 +54,11 @@ class Geoguesser extends Model
         return $this->hasMany(GeoguesserChallenge::class);
     }
 
+    public function boardColor(): string
+    {
+        return $this->user?->boardColor() ?? User::fallbackColor((int) $this->id);
+    }
+
     /**
      * @param  array<string, mixed>  $profile
      */

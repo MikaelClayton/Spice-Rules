@@ -33,6 +33,7 @@ if (root && dataNode) {
 
     bindTabs(root, draw);
     bindFilters(root, state, draw);
+    bindRewards(root);
 
     if (root.querySelector('[data-tab="graphs"]')?.checked) {
         draw();
@@ -71,12 +72,45 @@ function bindTabs(rootEl, onShowGraphs) {
                 url.searchParams.delete('tab');
             } else {
                 url.searchParams.set('tab', name);
-                requestAnimationFrame(onShowGraphs);
+
+                if (name === 'graphs') {
+                    requestAnimationFrame(onShowGraphs);
+                }
             }
 
             window.history.replaceState({}, '', url);
         });
     });
+}
+
+function bindRewards(rootEl) {
+    rootEl.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-reward]');
+
+        if (!button) {
+            return;
+        }
+
+        notifyReward(rootEl, button.getAttribute('data-reward') || '');
+    });
+}
+
+function notifyReward(rootEl, message) {
+    const host = rootEl.querySelector('[data-reward-toast]');
+
+    if (!host || message === '') {
+        return;
+    }
+
+    host.replaceChildren();
+    const alert = document.createElement('div');
+    alert.setAttribute('role', 'alert');
+    alert.className = 'alert shadow-lg max-w-sm';
+    const text = document.createElement('span');
+    text.textContent = message;
+    alert.append(text);
+    host.append(alert);
+    window.setTimeout(() => alert.remove(), 4000);
 }
 
 function bindFilters(rootEl, state, onChange) {
@@ -299,7 +333,7 @@ function renderTrend(rootEl, rows, players, state, charts, theme, palette) {
 
     const labels = [...new Set(rows.map((row) => row.date))].sort();
     const datasets = players.map((player, index) => {
-        const color = palette[index % palette.length];
+        const color = player.color || palette[index % palette.length];
 
         return {
             label: playerLabel(player),
@@ -346,7 +380,7 @@ function renderCompare(rootEl, rows, players, state, charts, theme, palette) {
         const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
         labels = sorted.map((row) => formatDate(row.date));
         data = sorted.map((row) => metricValue(row, state.metric));
-        colors = sorted.map((_, index) => palette[index % palette.length]);
+        colors = sorted.map(() => players[0].color || palette[0]);
 
         if (title) {
             title.textContent = 'Each day';
@@ -365,7 +399,7 @@ function renderCompare(rootEl, rows, players, state, charts, theme, palette) {
 
             return values.length ? average(values) : 0;
         });
-        colors = players.map((_, index) => palette[index % palette.length]);
+        colors = players.map((player, index) => player.color || palette[index % palette.length]);
 
         if (title) {
             title.textContent = 'Compare';

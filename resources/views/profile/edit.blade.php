@@ -70,6 +70,20 @@
                         </fieldset>
 
                         <fieldset class="fieldset">
+                            <label class="label" for="color">Board colour</label>
+                            <div class="flex items-center gap-3">
+                                <input
+                                    id="color"
+                                    type="color"
+                                    name="color"
+                                    value="{{ old('color', $user->color ?? $user->boardColor()) }}"
+                                    class="h-12 w-16 cursor-pointer rounded-lg border border-base-300 bg-base-100 p-1"
+                                >
+                                <p class="text-sm text-base-content/70">Used on graphs, the map, and today’s board.</p>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="fieldset">
                             <label class="label" for="password">New password</label>
                             <input
                                 id="password"

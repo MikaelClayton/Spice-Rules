@@ -30,7 +30,7 @@ class DashboardTest extends TestCase
         $this->actingAs($user)
             ->get(route('geoguessr.index'))
             ->assertOk()
-            ->assertSee('How everyone did')
+            ->assertSee('GeoGuessr')
             ->assertSee('Nobody has logged a score yet today.');
     }
 }

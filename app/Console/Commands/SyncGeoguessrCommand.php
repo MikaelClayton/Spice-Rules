@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 
 class SyncGeoguessrCommand extends Command
 {
-    protected $signature = 'geoguessr:sync';
+    protected $signature = 'geoguessr:sync {--force : Sync even if today\'s challenge is already saved}';
 
     protected $description = 'Pull GeoGuessr profiles, weekly dailies, and streaks for active players with an ncfa cookie';
 
@@ -24,15 +24,19 @@ class SyncGeoguessrCommand extends Command
         ]);
 
         try {
-            $synced = $sync->handle($run);
+            $result = $sync->handle($run, (bool) $this->option('force'));
             $run->update([
                 'status' => 'success',
-                'profiles_synced' => $synced,
+                'profiles_synced' => $result['synced'],
                 'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
                 'finished_at' => now(),
             ]);
 
-            $this->info("Synced {$synced} GeoGuessr profile(s).");
+            $this->info("Synced {$result['synced']} GeoGuessr profile(s).");
+
+            if ($result['skipped'] > 0) {
+                $this->info("Skipped {$result['skipped']} already synced for today. Use --force to refresh.");
+            }
 
             return self::SUCCESS;
         } catch (\Throwable $exception) {

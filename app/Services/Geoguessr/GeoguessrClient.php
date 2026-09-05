@@ -52,6 +52,14 @@ class GeoguessrClient
         return $this->get('/api/v3/profiles/stats', $ncfa);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function challengeGame(string $ncfa, string $challengeToken): array
+    {
+        return $this->request('POST', '/api/v3/challenges/'.$challengeToken, $ncfa);
+    }
+
     public static function normalizeNcfa(string $ncfa): string
     {
         $ncfa = trim($ncfa);
@@ -69,6 +77,14 @@ class GeoguessrClient
      */
     private function get(string $path, string $ncfa): array
     {
+        return $this->request('GET', $path, $ncfa);
+    }
+
+    /**
+     * @return array<string, mixed>|list<mixed>
+     */
+    private function request(string $method, string $path, string $ncfa): array
+    {
         $url = $this->baseUrl.$path;
         $started = hrtime(true);
         $status = null;
@@ -77,15 +93,18 @@ class GeoguessrClient
         $responsePayload = null;
 
         try {
-            $response = Http::acceptJson()
+            $pending = Http::acceptJson()
                 ->timeout(20)
                 ->withHeaders([
                     'Cookie' => '_ncfa='.self::normalizeNcfa($ncfa),
                 ])
                 ->withOptions([
                     'proxy' => '',
-                ])
-                ->get($url);
+                ]);
+
+            $response = strtoupper($method) === 'POST'
+                ? $pending->post($url)
+                : $pending->get($url);
 
             $status = $response->status();
             $responsePayload = $this->payload($response);
@@ -105,6 +124,7 @@ class GeoguessrClient
             throw $exception;
         } finally {
             $this->recordCall(
+                method: strtoupper($method),
                 url: $url,
                 status: $status,
                 succeeded: $succeeded,
@@ -132,11 +152,11 @@ class GeoguessrClient
     /**
      * @param  array<string, mixed>|list<mixed>|null  $response
      */
-    private function recordCall(string $url, ?int $status, bool $succeeded, int $durationMs, ?string $error, ?array $response): void
+    private function recordCall(string $method, string $url, ?int $status, bool $succeeded, int $durationMs, ?string $error, ?array $response): void
     {
         OutgoingApiCall::query()->create([
             'source' => $this->source,
-            'method' => 'GET',
+            'method' => $method,
             'url' => $url,
             'status_code' => $status,
             'succeeded' => $succeeded,

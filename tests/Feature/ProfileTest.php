@@ -34,6 +34,7 @@ class ProfileTest extends TestCase
             ->assertSee('Your details')
             ->assertSee('Mikael Clayton')
             ->assertSee('mikael@example.com')
+            ->assertSee('Board colour')
             ->assertSee('GeoGuessr')
             ->assertSee('_ncfa')
             ->assertSee('Active')
@@ -53,6 +54,7 @@ class ProfileTest extends TestCase
             ->patch(route('profile.update'), [
                 'name' => 'New Name',
                 'email' => 'new@example.com',
+                'color' => '#2A9D8F',
             ])
             ->assertRedirect(route('profile.edit'));
 
@@ -60,6 +62,7 @@ class ProfileTest extends TestCase
             'id' => $user->id,
             'name' => 'New Name',
             'email' => 'new@example.com',
+            'color' => '#2A9D8F',
         ]);
     }
 

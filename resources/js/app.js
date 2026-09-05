@@ -1,4 +1,5 @@
 import './geoguessr-board';
+import './geoguessr-challenges';
 
 document.querySelectorAll('[data-profile-tabs] [data-tab]').forEach((tab) => {
     tab.addEventListener('change', () => {

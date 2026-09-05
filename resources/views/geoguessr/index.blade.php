@@ -8,8 +8,7 @@
     </div>
 
     <div class="mb-5">
-        <h1 class="text-3xl font-bold">GeoGuessr</h1>
-        <p class="mt-1 text-base-content/70">How everyone did on {{ $date->toFormattedDateString() }}.</p>
+        <h1 class="text-2xl font-bold sm:text-3xl">GeoGuessr</h1>
     </div>
 
     @if (($progress['level'] ?? null) || ($progress['xp'] ?? null))
@@ -41,7 +40,7 @@
         </section>
     @endif
 
-    <div class="tabs tabs-box tabs-lg w-full" data-geoguessr-board>
+    <div class="tabs tabs-box w-full sm:tabs-lg" data-geoguessr-board>
         <input
             type="radio"
             name="geoguessr_tabs"
@@ -59,52 +58,151 @@
                     </div>
                 </div>
             @else
-                <ol class="space-y-3">
+                <ol class="space-y-2.5 sm:space-y-3">
                     @foreach ($results as $index => $result)
                         @php
                             $isYou = $result->geoguesser?->user_id === Auth::id();
                             $name = $result->geoguesser?->user?->name ?? $result->geoguesser?->username;
                             $nick = $result->geoguesser?->username;
+                            $rewards = [];
+
+                            if ($closestDistance !== null && $result->total_distance === $closestDistance) {
+                                $rewards[] = [
+                                    'emoji' => '💪',
+                                    'label' => 'Closest to target',
+                                    'message' => '💪 Closest to target · '.number_format($result->total_distance / 1000, 1).' km',
+                                ];
+                            }
+
+                            if ($furthestDistance !== null && $result->total_distance === $furthestDistance) {
+                                $rewards[] = [
+                                    'emoji' => '💩',
+                                    'label' => 'Furthest from target',
+                                    'message' => '💩 Furthest from target · '.number_format($result->total_distance / 1000, 1).' km',
+                                ];
+                            }
+
+                            if ($fewestSteps !== null && $result->total_steps_count === $fewestSteps) {
+                                $rewards[] = [
+                                    'emoji' => '♿',
+                                    'label' => 'Least steps',
+                                    'message' => '♿ Least steps · '.number_format($result->total_steps_count),
+                                ];
+                            }
+
+                            if ($mostSteps !== null && $result->total_steps_count === $mostSteps) {
+                                $rewards[] = [
+                                    'emoji' => '🏃',
+                                    'label' => 'Most steps',
+                                    'message' => '🏃 Most steps · '.number_format($result->total_steps_count),
+                                ];
+                            }
                         @endphp
-                        <li class="card bg-base-100 shadow-xl {{ $isYou ? 'ring-2 ring-primary' : '' }}">
-                            <div class="card-body flex-row items-center gap-3 p-4">
-                                <span @class([
-                                    'badge badge-lg tabular-nums',
-                                    'badge-warning' => $index === 0,
-                                    'badge-ghost' => $index === 1,
-                                    'badge-accent' => $index === 2,
-                                    'badge-neutral' => $index > 2,
-                                ])>{{ $index + 1 }}</span>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <p class="truncate font-semibold">{{ $name }}</p>
-                                        @if ($isYou)
-                                            <span class="badge badge-primary badge-sm">You</span>
+                        <li class="card bg-base-100 shadow-md {{ $isYou ? 'ring-2 ring-primary' : '' }}">
+                            <div class="card-body p-3.5 sm:p-4">
+                                <div class="flex items-start gap-3">
+                                    <span @class([
+                                        'badge badge-md sm:badge-lg mt-0.5 shrink-0 tabular-nums',
+                                        'badge-warning' => $index === 0,
+                                        'badge-ghost' => $index === 1,
+                                        'badge-accent' => $index === 2,
+                                        'badge-neutral' => $index > 2,
+                                    ])>{{ $index + 1 }}</span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex min-w-0 items-center gap-1">
+                                            <p class="truncate font-semibold leading-tight">{{ $name }}</p>
+                                            @foreach ($rewards as $reward)
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base leading-none hover:bg-base-200 active:scale-95"
+                                                    data-reward="{{ $reward['message'] }}"
+                                                    aria-label="{{ $reward['label'] }}"
+                                                >{{ $reward['emoji'] }}</button>
+                                            @endforeach
+                                        </div>
+                                        @if ($nick && $nick !== $name)
+                                            <p class="mt-0.5 truncate text-xs text-base-content/55">{{ $nick }}</p>
                                         @endif
                                     </div>
-                                    <p class="mt-1 text-xs text-base-content/60">
-                                        @if ($nick && $nick !== $name)
-                                            {{ $nick }} ·
-                                        @endif
-                                        @if ($result->total_distance)
-                                            {{ number_format($result->total_distance / 1000, 1) }} km
-                                        @else
-                                            Distance pending
-                                        @endif
-                                        ·
-                                        @if ($result->total_steps_count)
-                                            {{ number_format($result->total_steps_count) }} steps
-                                        @else
-                                            Steps pending
-                                        @endif
-                                    </p>
+                                    <div class="shrink-0 text-right">
+                                        <p class="text-lg font-bold leading-none tabular-nums sm:text-xl">{{ number_format($result->total_score) }}</p>
+                                        <p class="mt-1.5 text-xs tabular-nums text-base-content/60">
+                                            @if ($result->total_distance)
+                                                {{ number_format($result->total_distance / 1000, 1) }} km
+                                            @else
+                                                Distance pending
+                                            @endif
+                                        </p>
+                                        <p class="text-xs tabular-nums text-base-content/60">
+                                            @if ($result->total_steps_count)
+                                                {{ number_format($result->total_steps_count) }} steps
+                                            @else
+                                                Steps pending
+                                            @endif
+                                        </p>
+                                    </div>
                                 </div>
-                                <p class="text-right text-xl font-bold tabular-nums">{{ number_format($result->total_score) }}</p>
                             </div>
                         </li>
                     @endforeach
                 </ol>
             @endif
+        </div>
+
+        <input
+            type="radio"
+            name="geoguessr_tabs"
+            class="tab grow"
+            aria-label="Challenges"
+            data-tab="challenges"
+            @checked($activeTab === 'challenges')
+        >
+        <div class="tab-content mt-4 space-y-4" data-geoguessr-challenges>
+            @if ($dailies === [])
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title">Challenges</h2>
+                        <p class="text-base-content/70">Round locations will show up here after the next GeoGuessr sync.</p>
+                    </div>
+                </div>
+            @else
+                <section class="card bg-base-100 shadow-xl">
+                    <div class="card-body gap-3 p-4">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Daily</p>
+                        <div class="flex gap-2 overflow-x-auto pb-1" data-challenge-list>
+                            @foreach ($dailies as $daily)
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost btn-sm shrink-0 {{ ! empty($daily['locked']) ? 'opacity-50' : '' }}"
+                                    data-challenge-token="{{ $daily['token'] }}"
+                                    data-locked="{{ ! empty($daily['locked']) ? 'true' : 'false' }}"
+                                >
+                                    {{ $daily['label'] }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card bg-base-100 shadow-xl">
+                    <div class="card-body p-4">
+                        <h2 class="card-title text-base" data-challenge-title>Challenge</h2>
+                        <p class="text-sm text-base-content/70" data-challenge-copy>Actual locations in red. Guesses use each player’s colour.</p>
+                        <div class="relative mt-2 h-80 overflow-hidden rounded-xl" data-challenge-map-wrap>
+                            <div class="h-full w-full" data-challenge-map></div>
+                            <button type="button" class="btn btn-neutral btn-sm absolute right-3 top-3 z-[1100]" data-challenge-fullscreen>Full screen</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card bg-base-100 shadow-xl">
+                    <div class="card-body p-4">
+                        <h2 class="card-title text-base">Rounds</h2>
+                        <div class="mt-2 overflow-x-auto" data-challenge-rounds></div>
+                    </div>
+                </section>
+            @endif
+            <div class="toast toast-top toast-end z-[2000]" data-challenge-toast></div>
         </div>
 
         <input
@@ -132,6 +230,7 @@
                             <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="all">Everyone</button>
                             @foreach ($board['players'] as $player)
                                 <button type="button" class="btn btn-ghost btn-sm shrink-0" data-filter="{{ $player['id'] }}">
+                                    <span class="inline-block h-2.5 w-2.5 rounded-full" style="background: {{ $player['color'] }}"></span>
                                     {{ $player['label'] }}
                                 </button>
                             @endforeach
@@ -173,7 +272,9 @@
                 </div>
             </section>
         </div>
+        <div class="toast toast-top toast-end z-[2000]" data-reward-toast></div>
     </div>
 
     <script type="application/json" data-geoguessr-data>@json($board)</script>
+    <script type="application/json" data-geoguessr-dailies>@json($dailies)</script>
 @endsection

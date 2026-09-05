@@ -4,6 +4,7 @@ namespace App\Services\Geoguessr;
 
 use App\Models\CronRun;
 use App\Models\Geoguesser;
+use App\Models\GeoguesserChallenge;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -13,9 +14,13 @@ class SyncActiveGeoguessers
 {
     public function __construct(private readonly GeoguessrClient $client) {}
 
-    public function handle(?CronRun $cronRun = null): int
+    /**
+     * @return array{synced: int, skipped: int}
+     */
+    public function handle(?CronRun $cronRun = null, bool $force = false): array
     {
         $synced = 0;
+        $skipped = 0;
 
         $geoguessers = Geoguesser::query()
             ->where('is_active', true)
@@ -24,6 +29,12 @@ class SyncActiveGeoguessers
             ->get();
 
         foreach ($geoguessers as $geoguesser) {
+            if (! $force && $this->alreadySyncedToday($geoguesser)) {
+                $skipped++;
+
+                continue;
+            }
+
             try {
                 $this->sync($geoguesser, $cronRun);
                 $synced++;
@@ -35,7 +46,10 @@ class SyncActiveGeoguessers
             }
         }
 
-        return $synced;
+        return [
+            'synced' => $synced,
+            'skipped' => $skipped,
+        ];
     }
 
     public function sync(Geoguesser $geoguesser, ?CronRun $cronRun = null): void
@@ -46,7 +60,7 @@ class SyncActiveGeoguessers
 
         $profile = $this->client->profile($ncfa);
         $this->syncProfile($geoguesser, $profile);
-        $this->syncWeek($geoguesser, $this->client->weeklyDailyChallenges($ncfa), $this->progressFromProfile($profile));
+        $this->syncWeek($geoguesser, $ncfa, $this->client->weeklyDailyChallenges($ncfa), $this->progressFromProfile($profile));
         $this->syncStats($geoguesser, $this->client->stats($ncfa));
     }
 
@@ -63,7 +77,7 @@ class SyncActiveGeoguessers
      * @param  list<array<string, mixed>>  $days
      * @param  array<string, mixed>|null  $progress
      */
-    private function syncWeek(Geoguesser $geoguesser, array $days, ?array $progress): void
+    private function syncWeek(Geoguesser $geoguesser, string $ncfa, array $days, ?array $progress): void
     {
         foreach ($days as $day) {
             $token = $day['challengeToken'] ?? null;
@@ -86,11 +100,92 @@ class SyncActiveGeoguessers
                 $values['progress'] = $progress;
             }
 
-            $geoguesser->challenges()->updateOrCreate(
+            $challenge = $geoguesser->challenges()->updateOrCreate(
                 ['challenge_token' => $token],
                 $values,
             );
+
+            $this->syncRounds($geoguesser, $challenge, $ncfa, $token);
         }
+    }
+
+    private function syncRounds(Geoguesser $geoguesser, GeoguesserChallenge $challenge, string $ncfa, string $token): void
+    {
+        try {
+            $game = $this->client->challengeGame($ncfa, $token);
+        } catch (RequestException|ConnectionException $exception) {
+            Log::warning('GeoGuessr challenge game sync failed', [
+                'geoguesser_id' => $geoguesser->id,
+                'challenge_token' => $token,
+                'status' => $exception instanceof RequestException ? $exception->response?->status() : null,
+            ]);
+
+            return;
+        }
+
+        $player = is_array($game['player'] ?? null) ? $game['player'] : [];
+        $guesses = is_array($player['guesses'] ?? null) ? $player['guesses'] : [];
+        $rounds = is_array($game['rounds'] ?? null) ? $game['rounds'] : [];
+
+        if (($game['state'] ?? null) !== 'finished' && $guesses === []) {
+            return;
+        }
+
+        $challenge->update([
+            'game_token' => is_string($game['token'] ?? null) ? $game['token'] : $challenge->game_token,
+            'map_name' => is_string($game['mapName'] ?? null) ? $game['mapName'] : $challenge->map_name,
+            'total_score' => $this->intValue($player['totalScore']['amount'] ?? $player['totalScore'] ?? null) ?? $challenge->total_score,
+            'total_distance' => isset($player['totalDistanceInMeters'])
+                ? (int) round((float) $player['totalDistanceInMeters'])
+                : $challenge->total_distance,
+            'total_steps_count' => $this->intValue($player['totalStepsCount'] ?? null) ?? $challenge->total_steps_count,
+        ]);
+
+        foreach ($rounds as $index => $round) {
+            if (! is_array($round)) {
+                continue;
+            }
+
+            $guess = is_array($guesses[$index] ?? null) ? $guesses[$index] : [];
+            $number = $index + 1;
+
+            $challenge->rounds()->updateOrCreate(
+                ['round_number' => $number],
+                [
+                    'actual_lat' => $this->floatValue($round['lat'] ?? null),
+                    'actual_lng' => $this->floatValue($round['lng'] ?? null),
+                    'guess_lat' => $this->floatValue($guess['lat'] ?? null),
+                    'guess_lng' => $this->floatValue($guess['lng'] ?? null),
+                    'score' => $this->intValue($guess['roundScoreInPoints'] ?? $guess['roundScore']['amount'] ?? null),
+                    'percentage' => $this->floatValue($guess['roundScoreInPercentage'] ?? $guess['roundScore']['percentage'] ?? null),
+                    'time' => $this->intValue($guess['time'] ?? null),
+                    'steps_count' => $this->intValue($guess['stepsCount'] ?? null),
+                    'distance_in_meters' => isset($guess['distanceInMeters'])
+                        ? (int) round((float) $guess['distanceInMeters'])
+                        : $this->intValue($guess['distance']['meters']['amount'] ?? null),
+                    'timed_out' => is_bool($guess['timedOut'] ?? null) ? $guess['timedOut'] : null,
+                    'timed_out_with_guess' => is_bool($guess['timedOutWithGuess'] ?? null) ? $guess['timedOutWithGuess'] : null,
+                    'skipped_round' => is_bool($guess['skippedRound'] ?? null) ? $guess['skippedRound'] : null,
+                    'heading' => $this->floatValue($round['heading'] ?? null),
+                    'pitch' => $this->floatValue($round['pitch'] ?? null),
+                    'zoom' => $this->intValue($round['zoom'] ?? null),
+                    'pano_id' => is_string($round['panoId'] ?? null) ? $round['panoId'] : null,
+                    'country_code' => is_string($round['streakLocationCode'] ?? null) ? $round['streakLocationCode'] : null,
+                    'guess_country_code' => is_string($guess['streakLocationCode'] ?? null) ? $guess['streakLocationCode'] : null,
+                    'started_at' => isset($round['startTime']) ? Carbon::parse($round['startTime']) : null,
+                ],
+            );
+        }
+    }
+
+    private function intValue(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function floatValue(mixed $value): ?float
+    {
+        return is_numeric($value) ? (float) $value : null;
     }
 
     /**
@@ -142,6 +237,14 @@ class SyncActiveGeoguessers
         $progress = $user['progress'] ?? null;
 
         return is_array($progress) ? $progress : null;
+    }
+
+    private function alreadySyncedToday(Geoguesser $geoguesser): bool
+    {
+        return $geoguesser->challenges()
+            ->whereDate('attempted_at', today())
+            ->whereHas('rounds')
+            ->exists();
     }
 
     private function dateForDayOfWeek(int $dayOfWeek): Carbon
