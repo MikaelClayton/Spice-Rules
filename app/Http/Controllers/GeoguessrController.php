@@ -25,14 +25,43 @@ class GeoguessrController extends Controller
             ->orderBy('attempted_at')
             ->get();
 
+        $viewer = Auth::user();
+
         return view('geoguessr.index', [
             'results' => $results,
             'activeTab' => $this->activeTab(),
             'board' => $this->boardPayload($history),
             'dailies' => $this->dailiesPayload(),
-            'progress' => $this->viewerProgress(Auth::user()?->geoguesser),
+            'progress' => $this->viewerProgress($viewer?->geoguesser),
+            'ranks' => $this->ranks($results),
             ...$this->todayAwards($results),
         ]);
+    }
+
+    /**
+     * @param  Collection<int, GeoguesserChallenge>  $results
+     * @return array<int, int>
+     */
+    private function ranks(Collection $results): array
+    {
+        $ranks = [];
+        $place = 1;
+        $seen = 0;
+        $previousScore = null;
+
+        foreach ($results as $result) {
+            $seen++;
+            $score = $result->total_score === null ? null : (int) $result->total_score;
+
+            if ($previousScore !== $score) {
+                $place = $seen;
+            }
+
+            $ranks[(int) $result->id] = $place;
+            $previousScore = $score;
+        }
+
+        return $ranks;
     }
 
     /**

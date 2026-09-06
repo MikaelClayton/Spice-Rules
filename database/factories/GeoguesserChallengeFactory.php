@@ -25,6 +25,7 @@ class GeoguesserChallengeFactory extends Factory
             'total_distance' => fake()->numberBetween(0, 20000000),
             'total_steps_count' => fake()->numberBetween(0, 20000),
             'progress' => null,
+            'is_done_as_team' => false,
         ];
     }
 }

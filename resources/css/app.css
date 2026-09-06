@@ -105,10 +105,6 @@
     height: 100%;
 }
 
-[data-round-map] {
-    z-index: 0;
-}
-
 .challenge-map-fullscreen {
     position: fixed;
     top: 0;

@@ -11,6 +11,12 @@
         <h1 class="text-2xl font-bold sm:text-3xl">GeoGuessr</h1>
     </div>
 
+    @if (session('status'))
+        <div role="alert" class="alert alert-success mb-5">
+            <span>{{ session('status') }}</span>
+        </div>
+    @endif
+
     @if (($progress['level'] ?? null) || ($progress['xp'] ?? null))
         <section class="card bg-base-100 shadow-xl mb-5">
             <div class="card-body gap-3 p-4 sm:p-5">
@@ -61,41 +67,50 @@
                 <ol class="space-y-2.5 sm:space-y-3">
                     @foreach ($results as $index => $result)
                         @php
+                            $place = $ranks[$result->id] ?? ($index + 1);
                             $isYou = $result->geoguesser?->user_id === Auth::id();
                             $name = $result->geoguesser?->user?->name ?? $result->geoguesser?->username;
                             $nick = $result->geoguesser?->username;
                             $rewards = [];
 
-                            if ($closestDistance !== null && $result->total_distance === $closestDistance) {
+                            if ($result->is_done_as_team) {
                                 $rewards[] = [
-                                    'emoji' => '💪',
-                                    'label' => 'Closest to target',
-                                    'message' => '💪 Closest to target · '.number_format($result->total_distance / 1000, 1).' km',
+                                    'emoji' => '🤝',
+                                    'label' => 'Played as a team',
+                                    'message' => '🤝 Played as a team',
                                 ];
-                            }
+                            } else {
+                                if ($closestDistance !== null && $result->total_distance === $closestDistance) {
+                                    $rewards[] = [
+                                        'emoji' => '💪',
+                                        'label' => 'Closest to target',
+                                        'message' => '💪 Closest to target · '.number_format($result->total_distance / 1000, 1).' km',
+                                    ];
+                                }
 
-                            if ($furthestDistance !== null && $result->total_distance === $furthestDistance) {
-                                $rewards[] = [
-                                    'emoji' => '💩',
-                                    'label' => 'Furthest from target',
-                                    'message' => '💩 Furthest from target · '.number_format($result->total_distance / 1000, 1).' km',
-                                ];
-                            }
+                                if ($furthestDistance !== null && $result->total_distance === $furthestDistance) {
+                                    $rewards[] = [
+                                        'emoji' => '💩',
+                                        'label' => 'Furthest from target',
+                                        'message' => '💩 Furthest from target · '.number_format($result->total_distance / 1000, 1).' km',
+                                    ];
+                                }
 
-                            if ($fewestSteps !== null && $result->total_steps_count === $fewestSteps) {
-                                $rewards[] = [
-                                    'emoji' => '♿',
-                                    'label' => 'Least steps',
-                                    'message' => '♿ Least steps · '.number_format($result->total_steps_count),
-                                ];
-                            }
+                                if ($fewestSteps !== null && $result->total_steps_count === $fewestSteps) {
+                                    $rewards[] = [
+                                        'emoji' => '♿',
+                                        'label' => 'Least steps',
+                                        'message' => '♿ Least steps · '.number_format($result->total_steps_count),
+                                    ];
+                                }
 
-                            if ($mostSteps !== null && $result->total_steps_count === $mostSteps) {
-                                $rewards[] = [
-                                    'emoji' => '🏃',
-                                    'label' => 'Most steps',
-                                    'message' => '🏃 Most steps · '.number_format($result->total_steps_count),
-                                ];
+                                if ($mostSteps !== null && $result->total_steps_count === $mostSteps) {
+                                    $rewards[] = [
+                                        'emoji' => '🏃',
+                                        'label' => 'Most steps',
+                                        'message' => '🏃 Most steps · '.number_format($result->total_steps_count),
+                                    ];
+                                }
                             }
                         @endphp
                         <li class="card bg-base-100 shadow-md {{ $isYou ? 'ring-2 ring-primary' : '' }}">
@@ -103,11 +118,11 @@
                                 <div class="flex items-start gap-3">
                                     <span @class([
                                         'badge badge-md sm:badge-lg mt-0.5 shrink-0 tabular-nums',
-                                        'badge-warning' => $index === 0,
-                                        'badge-ghost' => $index === 1,
-                                        'badge-accent' => $index === 2,
-                                        'badge-neutral' => $index > 2,
-                                    ])>{{ $index + 1 }}</span>
+                                        'badge-warning' => $place === 1,
+                                        'badge-ghost' => $place === 2,
+                                        'badge-accent' => $place === 3,
+                                        'badge-neutral' => $place > 3,
+                                    ])>{{ $place }}</span>
                                     <div class="min-w-0 flex-1">
                                         <div class="flex min-w-0 items-center gap-1">
                                             <p class="truncate font-semibold leading-tight">{{ $name }}</p>

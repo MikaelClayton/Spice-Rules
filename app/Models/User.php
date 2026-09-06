@@ -57,6 +57,16 @@ class User extends Authenticatable
         return self::fallbackColor($this->id);
     }
 
+    public function canBrowseGeoguessrChallenges(): bool
+    {
+        return $this->hasGeoguessrAdminAccess();
+    }
+
+    private function hasGeoguessrAdminAccess(): bool
+    {
+        return strcasecmp((string) $this->email, 'mikaelclayton@gmail.com') === 0;
+    }
+
     public static function fallbackColor(int $id): string
     {
         $palette = ['#D82820', '#FEC523', '#2A9D8F', '#E85D04', '#283030', '#9B2226', '#F4A261'];

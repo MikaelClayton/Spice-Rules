@@ -59,6 +59,18 @@ class Geoguesser extends Model
         return $this->user?->boardColor() ?? User::fallbackColor((int) $this->id);
     }
 
+    public function displayName(): string
+    {
+        $name = $this->user?->name ?? $this->username;
+        $nick = $this->username;
+
+        if (filled($nick) && filled($name) && $nick !== $name) {
+            return "{$name} ({$nick})";
+        }
+
+        return (string) ($name ?: $nick);
+    }
+
     /**
      * @param  array<string, mixed>  $profile
      */

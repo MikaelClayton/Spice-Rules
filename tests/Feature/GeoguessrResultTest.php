@@ -45,6 +45,7 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('18,420')
             ->assertSee('12,100')
             ->assertSeeInOrder(['Today', 'Challenges', 'Graphs'])
+            ->assertDontSee('Duplicate a daily')
             ->assertDontSee('Update your score')
             ->assertDontSee('Log your score');
     }
@@ -88,6 +89,83 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('data-reward="💩 Furthest from target · 2,000.0 km"', false)
             ->assertSee('data-reward="♿ Least steps · 10"', false)
             ->assertSee('data-reward="🏃 Most steps · 200"', false);
+    }
+
+    public function test_tied_scores_share_the_same_rank(): void
+    {
+        $viewer = User::factory()->create(['name' => 'Viewer']);
+
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Alex']),
+            ]),
+            'attempted_at' => now(),
+            'total_score' => 19170,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Bronwyn']),
+            ]),
+            'attempted_at' => now(),
+            'total_score' => 19170,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Melissa']),
+            ]),
+            'attempted_at' => now(),
+            'total_score' => 19170,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Nikhil']),
+            ]),
+            'attempted_at' => now(),
+            'total_score' => 14396,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index'))
+            ->assertOk()
+            ->assertSeeInOrder(['Alex', 'Bronwyn', 'Melissa', 'Nikhil'])
+            ->assertSeeInOrder(['>1</span>', '>1</span>', '>1</span>', '>4</span>'], false)
+            ->assertDontSee('>2</span>', false)
+            ->assertDontSee('>3</span>', false);
+    }
+
+    public function test_team_sync_shows_only_a_handshake_emoji(): void
+    {
+        $viewer = User::factory()->create(['name' => 'Viewer']);
+
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Alex']),
+            ]),
+            'attempted_at' => now(),
+            'total_score' => 19170,
+            'total_distance' => 100_000,
+            'total_steps_count' => 200,
+            'is_done_as_team' => true,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Sam']),
+            ]),
+            'attempted_at' => now(),
+            'total_score' => 12000,
+            'total_distance' => 2_000_000,
+            'total_steps_count' => 10,
+            'is_done_as_team' => false,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index'))
+            ->assertOk()
+            ->assertSee('data-reward="🤝 Played as a team"', false)
+            ->assertDontSee('data-reward="💪 Closest to target · 100.0 km"', false)
+            ->assertDontSee('data-reward="🏃 Most steps · 200"', false)
+            ->assertSee('data-reward="💩 Furthest from target · 2,000.0 km"', false)
+            ->assertSee('data-reward="♿ Least steps · 10"', false);
     }
 
     public function test_progress_heading_shows_level_and_xp(): void

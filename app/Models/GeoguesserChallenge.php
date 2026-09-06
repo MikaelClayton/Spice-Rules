@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'total_distance',
     'total_steps_count',
     'progress',
+    'is_done_as_team',
 ])]
 class GeoguesserChallenge extends Model
 {
@@ -37,6 +38,7 @@ class GeoguesserChallenge extends Model
             'total_distance' => 'integer',
             'total_steps_count' => 'integer',
             'progress' => 'array',
+            'is_done_as_team' => 'boolean',
         ];
     }
 

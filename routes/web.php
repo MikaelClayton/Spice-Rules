@@ -30,5 +30,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/geoguessr', [ProfileController::class, 'updateGeoguessr'])->name('profile.geoguessr.update');
+    Route::post('/profile/geoguessr/sync', [ProfileController::class, 'syncGeoguessr'])->name('profile.geoguessr.sync');
+    Route::get('/profile/geoguessr/challenges', [ProfileController::class, 'geoguessrChallenges'])->name('profile.geoguessr.challenges');
+    Route::post('/profile/geoguessr/challenges/share', [ProfileController::class, 'shareGeoguessrChallenge'])->name('profile.geoguessr.challenges.share');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });
