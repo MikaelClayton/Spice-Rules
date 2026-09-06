@@ -26,6 +26,7 @@ class PasswordResetTest extends TestCase
         $this->get(route('login'))
             ->assertOk()
             ->assertSee('Forgot password?')
+            ->assertDontSee('Remember me')
             ->assertDontSee('navbar');
     }
 
@@ -54,7 +55,11 @@ class PasswordResetTest extends TestCase
             $this->get(route('password.reset', [
                 'token' => $notification->token,
                 'email' => $user->email,
-            ]))->assertOk()->assertSee('Reset password');
+            ]))
+                ->assertOk()
+                ->assertSee('Reset password')
+                ->assertSee('value="'.$user->email.'"', false)
+                ->assertSee('disabled', false);
 
             return true;
         });

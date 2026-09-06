@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -41,6 +42,14 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasMany<DeviceToken, $this>
+     */
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(DeviceToken::class);
+    }
+
+    /**
      * @return HasManyThrough<GeoguesserChallenge, Geoguesser, $this>
      */
     public function geoguesserChallenges(): HasManyThrough
@@ -59,10 +68,10 @@ class User extends Authenticatable
 
     public function canBrowseGeoguessrChallenges(): bool
     {
-        return $this->hasGeoguessrAdminAccess();
+        return $this->isAdmin();
     }
 
-    private function hasGeoguessrAdminAccess(): bool
+    public function isAdmin(): bool
     {
         return strcasecmp((string) $this->email, 'mikaelclayton@gmail.com') === 0;
     }

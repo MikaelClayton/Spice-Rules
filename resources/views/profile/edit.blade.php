@@ -18,7 +18,7 @@
         </div>
     @endif
 
-    <div class="tabs tabs-box tabs-lg w-full" data-profile-tabs>
+    <div class="tabs tabs-box tabs-lg w-full" data-tabs data-default-tab="account">
         <input
             type="radio"
             name="profile_tabs"
@@ -109,6 +109,23 @@
                     </form>
                 </div>
             </div>
+
+            @if ($firebase->isClientConfigured())
+                <div
+                    class="card bg-base-100 shadow-xl mt-4"
+                    data-push-notifications
+                    data-firebase-config='@json($firebase->webConfig())'
+                    data-vapid-key="{{ config('services.firebase.vapid_key') }}"
+                    data-token-url="{{ route('profile.device-tokens.store') }}"
+                >
+                    <div class="card-body">
+                        <h2 class="card-title">Notifications</h2>
+                        <button type="button" class="btn btn-primary w-full sm:w-auto" data-enable-push>
+                            Enable notifications
+                        </button>
+                    </div>
+                </div>
+            @endif
         </div>
 
         <input

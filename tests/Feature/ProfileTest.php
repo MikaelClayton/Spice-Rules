@@ -44,7 +44,8 @@ class ProfileTest extends TestCase
             ->assertSee('How to get your _ncfa')
             ->assertSee('youtube.com/watch?v=XSfTz9SZjTM')
             ->assertDontSee('Sync scores')
-            ->assertDontSee('Challenges by player');
+            ->assertDontSee('Challenges by player')
+            ->assertDontSee('Enable notifications');
     }
 
     public function test_users_can_update_their_details(): void

@@ -20,7 +20,8 @@ class DashboardTest extends TestCase
             ->assertSee('Today')
             ->assertSee('GeoGuessr')
             ->assertSee('Trivia')
-            ->assertSee('Word Rush');
+            ->assertSee('Word Rush')
+            ->assertDontSee('Admin');
     }
 
     public function test_authenticated_users_can_open_todays_geoguessr_results(): void

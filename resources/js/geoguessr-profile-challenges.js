@@ -1,3 +1,5 @@
+import { setButtonLoading } from './button-loading';
+
 const root = document.querySelector('[data-profile-challenges]');
 
 if (root) {
@@ -28,18 +30,18 @@ function bindFilters(rootEl, state) {
         state.player = player;
         state.page = 1;
         syncFilterButtons(rootEl, state);
-        loadChallenges(rootEl, state, { replace: true });
+        loadChallenges(rootEl, state, { replace: true, button });
     });
 }
 
 function bindLoadMore(rootEl, state) {
-    rootEl.querySelector('[data-challenge-more]')?.addEventListener('click', () => {
+    rootEl.querySelector('[data-challenge-more]')?.addEventListener('click', (event) => {
         if (state.loading || !state.hasMore) {
             return;
         }
 
         state.page += 1;
-        loadChallenges(rootEl, state, { replace: false });
+        loadChallenges(rootEl, state, { replace: false, button: event.currentTarget });
     });
 }
 
@@ -151,9 +153,7 @@ async function submitShare(rootEl, state) {
         return;
     }
 
-    if (submit instanceof HTMLButtonElement) {
-        submit.disabled = true;
-    }
+    setButtonLoading(submit, true);
 
     try {
         const response = await fetch(url, {
@@ -182,9 +182,7 @@ async function submitShare(rootEl, state) {
     } catch {
         setShareError(rootEl, 'Could not share this challenge.');
     } finally {
-        if (submit instanceof HTMLButtonElement) {
-            submit.disabled = false;
-        }
+        setButtonLoading(submit, false);
     }
 }
 
@@ -264,11 +262,11 @@ function syncMoreButton(rootEl, state) {
         return;
     }
 
-    button.disabled = state.loading;
     button.classList.toggle('hidden', !state.hasMore);
+    setButtonLoading(button, state.loading && state.hasMore);
 }
 
-async function loadChallenges(rootEl, state, { replace }) {
+async function loadChallenges(rootEl, state, { replace, button }) {
     const url = rootEl.getAttribute('data-challenges-url');
 
     if (!url) {
@@ -280,6 +278,7 @@ async function loadChallenges(rootEl, state, { replace }) {
     endpoint.searchParams.set('player', state.player);
 
     state.loading = true;
+    setButtonLoading(button, true);
     syncMoreButton(rootEl, state);
 
     try {
@@ -309,6 +308,7 @@ async function loadChallenges(rootEl, state, { replace }) {
         }
     } finally {
         state.loading = false;
+        setButtonLoading(button, false);
         syncMoreButton(rootEl, state);
     }
 }

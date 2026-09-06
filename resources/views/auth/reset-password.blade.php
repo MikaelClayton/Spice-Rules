@@ -18,17 +18,16 @@
                 @csrf
 
                 <input type="hidden" name="token" value="{{ $token }}">
+                <input type="hidden" name="email" value="{{ old('email', $email) }}">
 
                 <fieldset class="fieldset">
                     <label class="label" for="email">Email</label>
                     <input
                         id="email"
                         type="email"
-                        name="email"
                         value="{{ old('email', $email) }}"
-                        class="input w-full @error('email') input-error @enderror"
-                        required
-                        autofocus
+                        class="input w-full"
+                        disabled
                         autocomplete="username"
                     >
                 </fieldset>
@@ -41,6 +40,7 @@
                         name="password"
                         class="input w-full @error('password') input-error @enderror"
                         required
+                        autofocus
                         autocomplete="new-password"
                     >
                 </fieldset>

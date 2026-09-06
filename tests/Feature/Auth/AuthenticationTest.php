@@ -12,20 +12,25 @@ class AuthenticationTest extends TestCase
 
     public function test_login_screen_can_be_rendered(): void
     {
-        $this->get(route('login'))->assertOk();
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertDontSee('Remember me');
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create();
+        $rememberToken = $user->remember_token;
 
         $response = $this->post(route('login'), [
             'email' => $user->email,
             'password' => 'password',
+            'remember' => 'on',
         ]);
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard'));
+        $this->assertSame($rememberToken, $user->fresh()->remember_token);
     }
 
     public function test_users_cannot_authenticate_with_invalid_password(): void

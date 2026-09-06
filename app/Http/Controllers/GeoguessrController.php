@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Geoguesser;
 use App\Models\GeoguesserChallenge;
+use App\Services\Geoguessr\RankTodaysChallenges;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class GeoguessrController extends Controller
 {
+    public function __construct(private readonly RankTodaysChallenges $ranker) {}
+
     public function index(): View
     {
         $results = GeoguesserChallenge::query()
@@ -33,35 +36,9 @@ class GeoguessrController extends Controller
             'board' => $this->boardPayload($history),
             'dailies' => $this->dailiesPayload(),
             'progress' => $this->viewerProgress($viewer?->geoguesser),
-            'ranks' => $this->ranks($results),
+            'ranks' => $this->ranker->ranks($results),
             ...$this->todayAwards($results),
         ]);
-    }
-
-    /**
-     * @param  Collection<int, GeoguesserChallenge>  $results
-     * @return array<int, int>
-     */
-    private function ranks(Collection $results): array
-    {
-        $ranks = [];
-        $place = 1;
-        $seen = 0;
-        $previousScore = null;
-
-        foreach ($results as $result) {
-            $seen++;
-            $score = $result->total_score === null ? null : (int) $result->total_score;
-
-            if ($previousScore !== $score) {
-                $place = $seen;
-            }
-
-            $ranks[(int) $result->id] = $place;
-            $previousScore = $score;
-        }
-
-        return $ranks;
     }
 
     /**

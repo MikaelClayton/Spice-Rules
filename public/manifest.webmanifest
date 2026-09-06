@@ -1,0 +1,16 @@
+{
+    "name": "Spice Rules",
+    "short_name": "Spice Rules",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#fffdf6",
+    "theme_color": "#d82820",
+    "icons": [
+        {
+            "src": "/favicon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}

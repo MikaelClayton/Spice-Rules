@@ -7,6 +7,15 @@
         <title>@yield('title', config('app.name'))</title>
         <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
         <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
+        <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+        <meta name="theme-color" content="#d82820">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}">
+        @if (app(\App\Services\Push\FirebaseConfig::class)->isClientConfigured())
+            <script src="https://www.gstatic.com/firebasejs/{{ \App\Services\Push\FirebaseConfig::SDK_VERSION }}/firebase-app-compat.js"></script>
+            <script src="https://www.gstatic.com/firebasejs/{{ \App\Services\Push\FirebaseConfig::SDK_VERSION }}/firebase-messaging-compat.js"></script>
+        @endif
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-base-200">
@@ -26,6 +35,11 @@
                         <li>
                             <a href="{{ route('profile.edit') }}">Profile</a>
                         </li>
+                        @if (Auth::user()->isAdmin())
+                            <li>
+                                <a href="{{ route('admin.index') }}">Admin</a>
+                            </li>
+                        @endif
                         <li>
                             <button type="submit" form="logout-form" onmousedown="event.preventDefault()">Log out</button>
                         </li>

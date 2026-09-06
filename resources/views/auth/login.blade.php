@@ -49,11 +49,7 @@
                     >
                 </fieldset>
 
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="remember" class="checkbox checkbox-primary" {{ old('remember') ? 'checked' : '' }}>
-                        Remember me
-                    </label>
+                <div class="flex justify-end">
                     <a href="{{ route('password.request') }}" class="link link-primary text-sm">Forgot password?</a>
                 </div>
 

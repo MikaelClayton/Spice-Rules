@@ -5,14 +5,19 @@ namespace App\Services\Geoguessr;
 use App\Models\CronRun;
 use App\Models\Geoguesser;
 use App\Models\GeoguesserChallenge;
+use App\Services\Push\NotifyFriendsOfDailyChallenge;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SyncActiveGeoguessers
 {
-    public function __construct(private readonly GeoguessrClient $client) {}
+    public function __construct(
+        private readonly GeoguessrClient $client,
+        private readonly NotifyFriendsOfDailyChallenge $notifier,
+    ) {}
 
     /**
      * @return array{synced: int, skipped: int}
@@ -88,6 +93,8 @@ class SyncActiveGeoguessers
             }
 
             $attemptedAt = $this->dateForDayOfWeek((int) ($day['dayOfWeek'] ?? 0));
+            $existing = $geoguesser->challenges()->where('challenge_token', $token)->first();
+            $alreadyHadScore = $existing?->total_score !== null;
             $values = [
                 'attempted_at' => $attemptedAt,
                 'total_score' => $result['totalScore'] ?? null,
@@ -106,6 +113,7 @@ class SyncActiveGeoguessers
             );
 
             $this->syncRounds($geoguesser, $challenge, $ncfa, $token);
+            $this->notifyIfTodaysScoreIsNew($geoguesser, $challenge, $day, $attemptedAt, $alreadyHadScore);
         }
     }
 
@@ -237,6 +245,33 @@ class SyncActiveGeoguessers
         $progress = $user['progress'] ?? null;
 
         return is_array($progress) ? $progress : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $day
+     */
+    private function notifyIfTodaysScoreIsNew(
+        Geoguesser $geoguesser,
+        GeoguesserChallenge $challenge,
+        array $day,
+        Carbon $attemptedAt,
+        bool $alreadyHadScore,
+    ): void {
+        $isToday = ($day['isToday'] ?? false) === true || $attemptedAt->isToday();
+
+        if (! $isToday || $alreadyHadScore || $challenge->total_score === null) {
+            return;
+        }
+
+        try {
+            $this->notifier->handle($geoguesser, $challenge);
+        } catch (Throwable $exception) {
+            Log::warning('Daily GeoGuessr push notification failed', [
+                'geoguesser_id' => $geoguesser->id,
+                'challenge_id' => $challenge->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function alreadySyncedToday(Geoguesser $geoguesser): bool

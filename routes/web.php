@@ -1,15 +1,20 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeviceTokenController;
+use App\Http\Controllers\FirebaseMessagingServiceWorkerController;
 use App\Http\Controllers\GeoguessrController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
+Route::get('/firebase-messaging-sw.js', FirebaseMessagingServiceWorkerController::class)
+    ->name('push.service-worker');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
@@ -33,5 +38,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile/geoguessr/sync', [ProfileController::class, 'syncGeoguessr'])->name('profile.geoguessr.sync');
     Route::get('/profile/geoguessr/challenges', [ProfileController::class, 'geoguessrChallenges'])->name('profile.geoguessr.challenges');
     Route::post('/profile/geoguessr/challenges/share', [ProfileController::class, 'shareGeoguessrChallenge'])->name('profile.geoguessr.challenges.share');
+    Route::post('/profile/device-tokens', [DeviceTokenController::class, 'store'])
+        ->middleware('throttle:30,1')
+        ->name('profile.device-tokens.store');
+    Route::get('/admin', [AdminController::class, 'index'])->name('admin.index');
+    Route::post('/admin/push-notifications', [AdminController::class, 'sendPush'])
+        ->middleware('throttle:10,1')
+        ->name('admin.push.send');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

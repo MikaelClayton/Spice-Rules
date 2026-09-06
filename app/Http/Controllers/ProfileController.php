@@ -11,6 +11,7 @@ use App\Models\GeoguesserChallenge;
 use App\Services\Geoguessr\GeoguessrClient;
 use App\Services\Geoguessr\ShareGeoguessrChallengeAsTeam;
 use App\Services\Geoguessr\SyncActiveGeoguessers;
+use App\Services\Push\FirebaseConfig;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,7 @@ class ProfileController extends Controller
 {
     private const CHALLENGE_PAGE_SIZE = 25;
 
-    public function edit(): View
+    public function edit(FirebaseConfig $firebase): View
     {
         $user = request()->user();
         $canBrowseChallenges = $user->canBrowseGeoguessrChallenges();
@@ -41,6 +42,7 @@ class ProfileController extends Controller
             'challengeGrid' => $challengePage['challenges'],
             'challengeHasMore' => $challengePage['hasMore'],
             'shareTargets' => $canBrowseChallenges ? $this->shareTargets() : [],
+            'firebase' => $firebase,
         ]);
     }
 
