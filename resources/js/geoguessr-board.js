@@ -1,10 +1,13 @@
 import Chart from 'chart.js/auto';
+import { renderInsights } from './geoguessr-insights';
 
 const root = document.querySelector('[data-geoguessr-board]');
 const dataNode = document.querySelector('[data-geoguessr-data]');
+const insightsNode = document.querySelector('[data-geoguessr-insights]');
 
 if (root && dataNode) {
     const board = JSON.parse(dataNode.textContent || '{}');
+    const insights = JSON.parse(insightsNode?.textContent || '{"rounds":[]}');
     const state = {
         range: '7',
         player: 'all',
@@ -29,7 +32,13 @@ if (root && dataNode) {
     Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
     Chart.defaults.font.size = 12;
 
-    const draw = () => render(root, board, state, charts, theme, palette);
+    const draw = () => {
+        render(root, board, state, charts, theme, palette);
+
+        if (root.querySelector('[data-tab="graphs"]')?.checked) {
+            renderInsights(root, board, insights, state, theme, palette);
+        }
+    };
 
     bindTabs(root, draw);
     bindFilters(root, state, draw);

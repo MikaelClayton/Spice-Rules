@@ -286,10 +286,73 @@
                     <p class="hidden text-sm text-base-content/60" data-empty="compare">No results in this range yet.</p>
                 </div>
             </section>
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base">Score calendar</h2>
+                    <p class="text-sm text-base-content/70">Daily score heat. Darker red is closer to 25,000.</p>
+                    <div class="mt-3 overflow-x-auto" data-insight="calendar"></div>
+                    <p class="hidden text-sm text-base-content/60" data-empty="calendar">No results in this range yet.</p>
+                </div>
+            </section>
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base">Round 1-5</h2>
+                    <p class="text-sm text-base-content/70">Average score on each round of the daily.</p>
+                    <div class="relative mt-2 h-56">
+                        <canvas data-chart="rounds"></canvas>
+                    </div>
+                    <p class="hidden text-sm text-base-content/60" data-empty="rounds">No round scores in this range yet.</p>
+                </div>
+            </section>
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base">Head-to-head</h2>
+                    <p class="text-sm text-base-content/70">Same daily, same round. A win is the higher score.</p>
+                    <div class="mt-3 overflow-x-auto" data-insight="head-to-head"></div>
+                    <p class="hidden text-sm text-base-content/60" data-empty="head-to-head">Need two people on the same daily.</p>
+                </div>
+            </section>
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base">Country heat</h2>
+                    <p class="text-sm text-base-content/70">Where the daily lands. Size is how often, colour is average score.</p>
+                    <div class="relative mt-2 h-64 overflow-hidden rounded-xl" data-insight-map-wrap="countries">
+                        <div class="h-full w-full" data-insight-map="countries"></div>
+                        <button type="button" class="btn btn-neutral btn-sm absolute right-3 top-3 z-[1100]" data-map-fullscreen>Full screen</button>
+                    </div>
+                    <p class="hidden text-sm text-base-content/60" data-empty="countries">No country data in this range yet.</p>
+                </div>
+            </section>
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base">Guess heat</h2>
+                    <p class="text-sm text-base-content/70">Where people click. Brighter spots are denser guesses.</p>
+                    <div class="relative mt-2 h-64 overflow-hidden rounded-xl" data-insight-map-wrap="guesses">
+                        <div class="h-full w-full" data-insight-map="guesses"></div>
+                        <button type="button" class="btn btn-neutral btn-sm absolute right-3 top-3 z-[1100]" data-map-fullscreen>Full screen</button>
+                    </div>
+                    <p class="hidden text-sm text-base-content/60" data-empty="guesses">No guesses in this range yet.</p>
+                </div>
+            </section>
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base">Country leaderboard</h2>
+                    <p class="text-sm text-base-content/70">Best average score in each country.</p>
+                    <div class="mt-3 overflow-x-auto" data-insight="countries"></div>
+                    <p class="hidden text-sm text-base-content/60" data-empty="country-board">No country data in this range yet.</p>
+                </div>
+            </section>
         </div>
         <div class="toast toast-top toast-end z-[2000]" data-reward-toast></div>
     </div>
 
     <script type="application/json" data-geoguessr-data>@json($board)</script>
+    <script type="application/json" data-geoguessr-insights>@json($insights)</script>
     <script type="application/json" data-geoguessr-dailies>@json($dailies)</script>
 @endsection

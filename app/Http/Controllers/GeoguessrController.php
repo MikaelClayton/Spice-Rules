@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Geoguesser;
 use App\Models\GeoguesserChallenge;
+use App\Services\Geoguessr\BuildGeoguessrInsights;
 use App\Services\Geoguessr\RankTodaysChallenges;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -11,7 +12,10 @@ use Illuminate\View\View;
 
 class GeoguessrController extends Controller
 {
-    public function __construct(private readonly RankTodaysChallenges $ranker) {}
+    public function __construct(
+        private readonly RankTodaysChallenges $ranker,
+        private readonly BuildGeoguessrInsights $insights,
+    ) {}
 
     public function index(): View
     {
@@ -23,7 +27,7 @@ class GeoguessrController extends Controller
             ->get();
 
         $history = GeoguesserChallenge::query()
-            ->with('geoguesser.user')
+            ->with(['geoguesser.user', 'rounds'])
             ->whereNotNull('total_score')
             ->orderBy('attempted_at')
             ->get();
@@ -34,6 +38,7 @@ class GeoguessrController extends Controller
             'results' => $results,
             'activeTab' => $this->activeTab(),
             'board' => $this->boardPayload($history),
+            'insights' => $this->insights->payload($history, $viewer?->id),
             'dailies' => $this->dailiesPayload(),
             'progress' => $this->viewerProgress($viewer?->geoguesser),
             'ranks' => $this->ranker->ranks($results),

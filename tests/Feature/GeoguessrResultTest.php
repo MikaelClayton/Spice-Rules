@@ -282,6 +282,113 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('2500000');
     }
 
+    public function test_graphs_tab_renders_insight_sections(): void
+    {
+        $viewer = User::factory()->create();
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'graphs']))
+            ->assertOk()
+            ->assertSee('Score calendar')
+            ->assertSee('Round 1-5')
+            ->assertSee('Head-to-head')
+            ->assertSee('Country heat')
+            ->assertSee('Guess heat')
+            ->assertSee('Country leaderboard')
+            ->assertSee('data-insight-map-wrap="countries"', false)
+            ->assertSee('data-insight-map-wrap="guesses"', false)
+            ->assertSee('data-map-fullscreen', false);
+    }
+
+    public function test_graphs_omit_todays_locations_until_the_viewer_plays(): void
+    {
+        $viewer = User::factory()->create();
+        $other = User::factory()->create(['name' => 'Other Player']);
+        $geoguesser = Geoguesser::factory()->create([
+            'user_id' => $other->id,
+            'username' => 'OtherOnGeo',
+        ]);
+        $today = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $geoguesser->id,
+            'challenge_token' => 'TodayInsightToken',
+            'attempted_at' => now(),
+            'total_score' => 5000,
+        ]);
+
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $today->id,
+            'round_number' => 1,
+            'actual_lat' => 12.3456789,
+            'actual_lng' => 98.7654321,
+            'guess_lat' => 11.111,
+            'guess_lng' => 22.222,
+            'score' => 4321,
+            'country_code' => 'jp',
+        ]);
+
+        $yesterday = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $geoguesser->id,
+            'challenge_token' => 'YesterdayInsightToken',
+            'attempted_at' => now()->subDay(),
+            'total_score' => 3871,
+        ]);
+
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $yesterday->id,
+            'round_number' => 1,
+            'actual_lat' => -10.6741219,
+            'actual_lng' => -76.7747612,
+            'guess_lat' => -7.5501728,
+            'guess_lng' => -75.3326236,
+            'score' => 3871,
+            'country_code' => 'pe',
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'graphs']))
+            ->assertOk()
+            ->assertSee('TodayInsightToken')
+            ->assertSee('4321')
+            ->assertSee('YesterdayInsightToken')
+            ->assertSee('-10.6741219')
+            ->assertSee('"country":"PE"', false)
+            ->assertDontSee('12.3456789')
+            ->assertDontSee('98.7654321')
+            ->assertDontSee('"country":"JP"', false);
+    }
+
+    public function test_graphs_include_todays_locations_after_the_viewer_plays(): void
+    {
+        $viewer = User::factory()->create(['name' => 'Viewer']);
+        $today = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => $viewer->id,
+                'username' => 'ViewerOnGeo',
+            ]),
+            'challenge_token' => 'TodayInsightToken',
+            'attempted_at' => now(),
+            'total_score' => 5000,
+        ]);
+
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $today->id,
+            'round_number' => 1,
+            'actual_lat' => 12.3456789,
+            'actual_lng' => 98.7654321,
+            'guess_lat' => 11.111,
+            'guess_lng' => 22.222,
+            'score' => 4321,
+            'country_code' => 'jp',
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'graphs']))
+            ->assertOk()
+            ->assertSee('12.3456789')
+            ->assertSee('98.7654321')
+            ->assertSee('"country":"JP"', false);
+    }
+
     public function test_challenges_tab_includes_round_locations(): void
     {
         $viewer = User::factory()->create();

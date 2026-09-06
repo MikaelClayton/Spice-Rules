@@ -100,7 +100,8 @@
     border: 1px solid var(--input-color);
 }
 
-[data-challenge-map] {
+[data-challenge-map],
+[data-insight-map] {
     z-index: 0;
     height: 100%;
 }
@@ -118,6 +119,14 @@
     margin: 0;
     border-radius: 0;
     overflow: hidden;
+}
+
+.score-heat-cell {
+    display: block;
+    width: 1.65rem;
+    height: 1.65rem;
+    margin-inline: auto;
+    border-radius: 0.3rem;
 }
 
 .geoguessr-pin {

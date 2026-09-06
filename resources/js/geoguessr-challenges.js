@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { bindMapFullscreen } from './geoguessr-map-fullscreen';
 
 const root = document.querySelector('[data-geoguessr-challenges]');
 const dataNode = document.querySelector('[data-geoguessr-dailies]');
@@ -35,13 +36,17 @@ if (root && dataNode) {
 
     const initial = firstUnlockedToken(dailies, new URL(window.location.href).searchParams.get('challenge'));
 
-    bindFullscreen(root, () => {
-        if (!map && initial) {
-            show(initial);
-        }
+    bindMapFullscreen(
+        root.querySelector('[data-challenge-map-wrap]'),
+        root.querySelector('[data-challenge-fullscreen]'),
+        () => {
+            if (!map && initial) {
+                show(initial);
+            }
 
-        return map;
-    });
+            return map;
+        },
+    );
 
     if (root.closest('[data-geoguessr-board]')?.querySelector('[data-tab="challenges"]')?.checked && initial) {
         requestAnimationFrame(() => show(initial));
@@ -81,62 +86,6 @@ function bindChallengeList(rootEl, dailies, show) {
         }
 
         show(button.getAttribute('data-challenge-token'));
-    });
-}
-
-function bindFullscreen(rootEl, mapOf) {
-    const wrap = rootEl.querySelector('[data-challenge-map-wrap]');
-    const button = rootEl.querySelector('[data-challenge-fullscreen]');
-
-    if (!wrap || !button) {
-        return;
-    }
-
-    let home = null;
-
-    const resize = () => {
-        requestAnimationFrame(() => mapOf()?.invalidateSize());
-    };
-
-    const exit = () => {
-        wrap.classList.remove('challenge-map-fullscreen');
-        document.body.classList.remove('overflow-hidden');
-        button.textContent = 'Full screen';
-
-        if (home?.parent) {
-            home.parent.insertBefore(wrap, home.next);
-        }
-
-        home = null;
-        mapOf()?.scrollWheelZoom.disable();
-        resize();
-    };
-
-    const enter = () => {
-        home = {
-            parent: wrap.parentElement,
-            next: wrap.nextSibling,
-        };
-        document.body.appendChild(wrap);
-        wrap.classList.add('challenge-map-fullscreen');
-        document.body.classList.add('overflow-hidden');
-        button.textContent = 'Exit';
-        mapOf()?.scrollWheelZoom.enable();
-        resize();
-    };
-
-    button.addEventListener('click', () => {
-        if (wrap.classList.contains('challenge-map-fullscreen')) {
-            exit();
-        } else {
-            enter();
-        }
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && wrap.classList.contains('challenge-map-fullscreen')) {
-            exit();
-        }
     });
 }
 
