@@ -438,6 +438,57 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('YesterdayPanoToken');
     }
 
+    public function test_challenges_summarise_the_day_winner_and_order_round_guesses_by_score(): void
+    {
+        $viewer = User::factory()->create();
+        $token = 'DayWinnerToken';
+        $second = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Damien Second']),
+            ]),
+            'challenge_token' => $token,
+            'map_name' => 'World',
+            'attempted_at' => now()->subDay(),
+            'total_score' => 9432,
+        ]);
+        $winner = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Celeste Winner']),
+            ]),
+            'challenge_token' => $token,
+            'map_name' => 'World',
+            'attempted_at' => now()->subDay(),
+            'total_score' => 18765,
+        ]);
+
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $second->id,
+            'round_number' => 1,
+            'score' => 1023,
+            'percentage' => 20.46,
+            'guess_lat' => 1.1,
+            'guess_lng' => 2.2,
+            'country_code' => 'de',
+        ]);
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $winner->id,
+            'round_number' => 1,
+            'score' => 4987,
+            'percentage' => 99.74,
+            'guess_lat' => 3.3,
+            'guess_lng' => 4.4,
+            'country_code' => 'de',
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'challenges']))
+            ->assertOk()
+            ->assertSee('The day')
+            ->assertSee('"score":18765,"place":1', false)
+            ->assertSee('"score":9432,"place":2', false)
+            ->assertSeeInOrder(['"score":4987,"percent"', '"score":1023,"percent"']);
+    }
+
     public function test_todays_challenge_locations_are_hidden_until_the_viewer_plays(): void
     {
         $viewer = User::factory()->create();

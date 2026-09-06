@@ -147,6 +147,7 @@ function renderChallenge(rootEl, dailies, token, palette, mapOf, setLayer) {
         copy.textContent = `${daily.mapName} · ${daily.playerCount} player${daily.playerCount === 1 ? '' : 's'}. Red is the real location.`;
     }
 
+    renderSummary(rootEl, daily);
     renderRoundTable(rootEl, daily);
     renderMap(rootEl, daily, palette, mapOf, setLayer);
 }
@@ -230,6 +231,45 @@ function playerColors(daily, palette) {
     return colors;
 }
 
+function renderSummary(rootEl, daily) {
+    const host = rootEl.querySelector('[data-challenge-summary]');
+
+    if (!host) {
+        return;
+    }
+
+    const standings = Array.isArray(daily.standings) ? daily.standings : [];
+
+    if (standings.length === 0) {
+        host.innerHTML = '<p class="text-sm text-base-content/60">No scores for this daily yet.</p>';
+
+        return;
+    }
+
+    const winners = standings.filter((row) => row.place === 1);
+    const names = winners.map((row) => row.label).join(' and ');
+    const headline = winners.length > 1 ? `${names} tied for the day` : `${names} won the day`;
+
+    host.innerHTML = `
+        <p class="text-lg font-semibold">${escapeHtml(headline)}</p>
+        <p class="text-sm text-base-content/70">${formatScore(winners[0]?.score)}</p>
+        <ol class="mt-3 space-y-1.5">
+            ${standings
+                .map(
+                    (row) => `
+                <li class="flex items-center gap-2 text-sm">
+                    <span class="badge badge-sm tabular-nums ${placeBadge(row.place)}">${row.place}</span>
+                    <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background:${row.color || '#2A9D8F'}"></span>
+                    <span class="min-w-0 flex-1 truncate">${escapeHtml(row.label)}</span>
+                    <span class="tabular-nums font-semibold">${formatScore(row.score)}</span>
+                </li>
+            `,
+                )
+                .join('')}
+        </ol>
+    `;
+}
+
 function renderRoundTable(rootEl, daily) {
     const host = rootEl.querySelector('[data-challenge-rounds]');
 
@@ -244,14 +284,19 @@ function renderRoundTable(rootEl, daily) {
     }
 
     host.innerHTML = daily.rounds
-        .map(
-            (round) => `
+        .map((round) => {
+            const guesses = rankedGuesses(round.guesses || []);
+            const winners = guesses.filter((guess) => guess.place === 1).map((guess) => guess.label);
+            const winnerLabel = winners.length ? ` · ${winners.join(' and ')}` : '';
+
+            return `
             <article class="mb-4 last:mb-0">
-                <p class="mb-2 font-semibold">Round ${round.number}${countryName(round.country) ? ` · ${countryName(round.country)}` : ''}</p>
+                <p class="mb-2 font-semibold">Round ${round.number}${countryName(round.country) ? ` · ${countryName(round.country)}` : ''}${escapeHtml(winnerLabel)}</p>
                 <div class="overflow-x-auto">
                     <table class="table table-sm">
                         <thead>
                             <tr>
+                                <th></th>
                                 <th>Player</th>
                                 <th>Score</th>
                                 <th>%</th>
@@ -261,10 +306,13 @@ function renderRoundTable(rootEl, daily) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${round.guesses
+                            ${guesses
                                 .map(
                                     (guess) => `
-                                <tr>
+                                <tr class="${guess.place === 1 ? 'font-semibold' : ''}">
+                                    <td class="w-10">
+                                        <span class="badge badge-sm tabular-nums ${placeBadge(guess.place)}">${guess.place}</span>
+                                    </td>
                                     <td>
                                         <span class="mr-2 inline-block h-2.5 w-2.5 rounded-full" style="background:${guess.color || '#2A9D8F'}"></span>
                                         ${escapeHtml(guess.label)}
@@ -282,9 +330,44 @@ function renderRoundTable(rootEl, daily) {
                     </table>
                 </div>
             </article>
-        `,
-        )
+        `;
+        })
         .join('');
+}
+
+function rankedGuesses(guesses) {
+    const sorted = [...guesses].sort((left, right) => (right.score ?? -1) - (left.score ?? -1));
+    let place = 1;
+    let seen = 0;
+    let previous = null;
+
+    return sorted.map((guess) => {
+        seen += 1;
+
+        if (guess.score !== previous) {
+            place = seen;
+        }
+
+        previous = guess.score;
+
+        return { ...guess, place };
+    });
+}
+
+function placeBadge(place) {
+    if (place === 1) {
+        return 'badge-warning';
+    }
+
+    if (place === 2) {
+        return 'badge-ghost';
+    }
+
+    if (place === 3) {
+        return 'badge-accent';
+    }
+
+    return 'badge-neutral';
 }
 
 function countryName(code) {

@@ -195,6 +195,22 @@ class GeoguessrController extends Controller
 
                 ksort($rounds);
 
+                if (! $locked) {
+                    foreach ($rounds as $number => $round) {
+                        usort(
+                            $rounds[$number]['guesses'],
+                            fn (array $left, array $right): int => ($right['score'] ?? -1) <=> ($left['score'] ?? -1),
+                        );
+                    }
+                }
+
+                $ordered = $group
+                    ->filter(fn (GeoguesserChallenge $challenge): bool => $challenge->geoguesser !== null)
+                    ->sort(fn (GeoguesserChallenge $left, GeoguesserChallenge $right): int => ((int) $right->total_score) <=> ((int) $left->total_score)
+                        ?: ($left->updated_at?->timestamp ?? 0) <=> ($right->updated_at?->timestamp ?? 0))
+                    ->values();
+                $ranks = $this->ranker->ranks($ordered);
+
                 return [
                     'token' => $first?->challenge_token,
                     'date' => $date,
@@ -202,6 +218,13 @@ class GeoguessrController extends Controller
                     'mapName' => $group->pluck('map_name')->filter()->first() ?? 'World',
                     'playerCount' => $group->count(),
                     'locked' => $locked,
+                    'standings' => $locked ? [] : $ordered->map(fn (GeoguesserChallenge $challenge): array => [
+                        'playerId' => $challenge->geoguesser_id,
+                        'label' => $this->playerLabel($challenge->geoguesser),
+                        'color' => $challenge->geoguesser?->boardColor(),
+                        'score' => $challenge->total_score,
+                        'place' => $ranks[(int) $challenge->id] ?? $ordered->count(),
+                    ])->values()->all(),
                     'rounds' => $locked ? [] : array_values($rounds),
                 ];
             })
@@ -216,6 +239,7 @@ class GeoguessrController extends Controller
                 'mapName' => 'World',
                 'playerCount' => 0,
                 'locked' => true,
+                'standings' => [],
                 'rounds' => [],
             ]);
         }

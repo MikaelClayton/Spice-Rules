@@ -212,6 +212,13 @@
 
                 <section class="card bg-base-100 shadow-xl">
                     <div class="card-body p-4">
+                        <h2 class="card-title text-base">The day</h2>
+                        <div class="mt-2" data-challenge-summary></div>
+                    </div>
+                </section>
+
+                <section class="card bg-base-100 shadow-xl">
+                    <div class="card-body p-4">
                         <h2 class="card-title text-base">Rounds</h2>
                         <div class="mt-2 overflow-x-auto" data-challenge-rounds></div>
                     </div>
