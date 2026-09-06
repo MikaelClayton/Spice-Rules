@@ -294,6 +294,7 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('Head-to-head')
             ->assertSee('Country heat')
             ->assertSee('Guess heat')
+            ->assertSee('Continent leaderboard')
             ->assertSee('Country leaderboard')
             ->assertSee('data-insight-map-wrap="countries"', false)
             ->assertSee('data-insight-map-wrap="guesses"', false)
@@ -352,9 +353,11 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('YesterdayInsightToken')
             ->assertSee('-10.6741219')
             ->assertSee('"country":"PE"', false)
+            ->assertSee('"continent":"South America"', false)
             ->assertDontSee('12.3456789')
             ->assertDontSee('98.7654321')
-            ->assertDontSee('"country":"JP"', false);
+            ->assertDontSee('"country":"JP"', false)
+            ->assertDontSee('"continent":"Asia"', false);
     }
 
     public function test_graphs_include_todays_locations_after_the_viewer_plays(): void
@@ -386,7 +389,8 @@ class GeoguessrResultTest extends TestCase
             ->assertOk()
             ->assertSee('12.3456789')
             ->assertSee('98.7654321')
-            ->assertSee('"country":"JP"', false);
+            ->assertSee('"country":"JP"', false)
+            ->assertSee('"continent":"Asia"', false);
     }
 
     public function test_challenges_tab_includes_round_locations(): void

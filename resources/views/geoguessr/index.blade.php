@@ -342,6 +342,15 @@
 
             <section class="card bg-base-100 shadow-xl">
                 <div class="card-body p-4">
+                    <h2 class="card-title text-base">Continent leaderboard</h2>
+                    <p class="text-sm text-base-content/70">Best average score on each continent.</p>
+                    <div class="mt-3 overflow-x-auto" data-insight="continents"></div>
+                    <p class="hidden text-sm text-base-content/60" data-empty="continent-board">No continent data in this range yet.</p>
+                </div>
+            </section>
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body p-4">
                     <h2 class="card-title text-base">Country leaderboard</h2>
                     <p class="text-sm text-base-content/70">Best average score in each country.</p>
                     <div class="mt-3 overflow-x-auto" data-insight="countries"></div>
