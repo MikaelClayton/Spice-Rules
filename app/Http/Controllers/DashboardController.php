@@ -17,14 +17,10 @@ class DashboardController extends Controller
                     'available' => true,
                 ],
                 [
-                    'name' => 'Trivia',
-                    'description' => "See how everyone did on today's questions.",
-                    'available' => false,
-                ],
-                [
-                    'name' => 'Word Rush',
-                    'description' => "See how everyone did on today's words.",
-                    'available' => false,
+                    'route' => 'wickets.index',
+                    'name' => 'Wickets',
+                    'description' => 'Hand out fines, then drink them down.',
+                    'available' => true,
                 ],
             ],
         ]);

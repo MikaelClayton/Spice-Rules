@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -55,6 +56,22 @@ class User extends Authenticatable
     public function geoguesserChallenges(): HasManyThrough
     {
         return $this->hasManyThrough(GeoguesserChallenge::class, Geoguesser::class);
+    }
+
+    /**
+     * @return BelongsToMany<WicketGroup, $this>
+     */
+    public function wicketGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(WicketGroup::class)->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<WicketGroup, $this>
+     */
+    public function ownedWicketGroups(): HasMany
+    {
+        return $this->hasMany(WicketGroup::class);
     }
 
     public function boardColor(): string

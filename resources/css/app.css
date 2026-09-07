@@ -134,6 +134,46 @@
     border: 0;
 }
 
+[data-people-list] {
+    display: none;
+}
+
+[data-people-picker]:focus-within [data-people-list],
+[data-people-picker][data-open] [data-people-list] {
+    display: block;
+}
+
+[data-sip-stepper] {
+    --sip-fill: 0;
+    --beer: #e39b1a;
+    --beer-deep: #b56b0a;
+    --foam: #fff6d6;
+}
+
+[data-sip-stepper] .wicket-beer-liquid {
+    transform: translateY(calc((1 - var(--sip-fill, 0)) * 100%));
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    transition: transform 280ms ease;
+}
+
+[data-sip-stepper] .wicket-beer-foam {
+    opacity: 0;
+    transition: opacity 220ms ease;
+}
+
+[data-sip-stepper][data-has-sips] .wicket-beer-foam {
+    opacity: 1;
+}
+
+[data-sip-stepper] .wicket-beer-bubbles {
+    opacity: 0;
+}
+
+[data-sip-stepper][data-has-sips] .wicket-beer-bubbles {
+    opacity: 0.85;
+}
+
 .geoguessr-pin span {
     display: flex;
     height: 1.75rem;

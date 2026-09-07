@@ -10,6 +10,11 @@ use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\FirebaseMessagingServiceWorkerController;
 use App\Http\Controllers\GeoguessrController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WicketFineCompletionController;
+use App\Http\Controllers\WicketFineController;
+use App\Http\Controllers\WicketGroupController;
+use App\Http\Controllers\WicketGroupMemberController;
+use App\Http\Controllers\WicketSipLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -32,6 +37,19 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/geoguessr', [GeoguessrController::class, 'index'])->name('geoguessr.index');
+    Route::get('/wickets', [WicketGroupController::class, 'index'])->name('wickets.index');
+    Route::get('/wickets/create', [WicketGroupController::class, 'create'])->name('wickets.create');
+    Route::post('/wickets', [WicketGroupController::class, 'store'])->name('wickets.store');
+    Route::get('/wickets/{wicketGroup}', [WicketGroupController::class, 'show'])->name('wickets.show');
+    Route::post('/wickets/{wicketGroup}/members', [WicketGroupMemberController::class, 'store'])->name('wickets.members.store');
+    Route::delete('/wickets/{wicketGroup}/members/{user}', [WicketGroupMemberController::class, 'destroy'])
+        ->scopeBindings()
+        ->name('wickets.members.destroy');
+    Route::post('/wickets/{wicketGroup}/fines', [WicketFineController::class, 'store'])->name('wickets.fines.store');
+    Route::post('/wickets/{wicketGroup}/sips', [WicketSipLogController::class, 'store'])->name('wickets.sips.store');
+    Route::post('/wickets/{wicketGroup}/fines/{fine}/completions', [WicketFineCompletionController::class, 'store'])
+        ->scopeBindings()
+        ->name('wickets.fines.completions.store');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/geoguessr', [ProfileController::class, 'updateGeoguessr'])->name('profile.geoguessr.update');

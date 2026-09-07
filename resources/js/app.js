@@ -3,6 +3,8 @@ import './geoguessr-board';
 import './geoguessr-challenges';
 import './geoguessr-profile-challenges';
 import './push-notifications';
+import './wickets-sip-stepper';
+import './wickets-people-picker';
 
 document.querySelectorAll('[data-tabs] [data-tab]').forEach((tab) => {
     tab.addEventListener('change', () => {
