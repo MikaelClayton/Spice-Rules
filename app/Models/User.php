@@ -63,7 +63,9 @@ class User extends Authenticatable
      */
     public function wicketGroups(): BelongsToMany
     {
-        return $this->belongsToMany(WicketGroup::class)->withTimestamps();
+        return $this->belongsToMany(WicketGroup::class)
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     /**

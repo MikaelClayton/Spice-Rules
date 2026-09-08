@@ -348,6 +348,9 @@ class WicketFineTest extends TestCase
             ->assertSee('Still owing this one')
             ->assertSee('data-stat-type="sips"', false)
             ->assertSee('data-stat-count="2"', false)
+            ->assertSee('data-stat-bound="exact"', false)
+            ->assertDontSee('data-stat-bound="at-least"', false)
+            ->assertDontSee('Your fines are hidden.')
             ->assertDontSee('data-open-fine-id="'.$doneFine->id.'"', false);
     }
 
@@ -367,6 +370,9 @@ class WicketFineTest extends TestCase
             ->assertOk()
             ->assertSee('data-stat-type="down_down"', false)
             ->assertSee('data-stat-count="5"', false)
+            ->assertSee('data-stat-bound="exact"', false)
+            ->assertDontSee('data-stat-bound="at-least"', false)
+            ->assertDontSee('Your fines are hidden.')
             ->assertSee('Down down');
     }
 

@@ -48,6 +48,7 @@ class WicketGroupTest extends TestCase
             'id' => $group->id,
             'name' => 'Club day',
             'user_id' => $user->id,
+            'is_tournament' => false,
         ]);
         $this->assertDatabaseHas('user_wicket_group', [
             'wicket_group_id' => $group->id,

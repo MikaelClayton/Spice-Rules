@@ -42,9 +42,14 @@
                                     <h2 class="card-title text-lg">{{ $group->name }}</h2>
                                     <p class="mt-1 text-sm text-base-content/70">
                                         {{ $group->users_count }} {{ $group->users_count === 1 ? 'player' : 'players' }}
+                                        @if ($group->isTournament())
+                                            · Tournament
+                                        @endif
                                     </p>
                                 </div>
-                                @if ($group->outstanding_fines_count > 0)
+                                @if ($group->isTournament())
+                                    <span class="badge badge-secondary shrink-0">Tournament</span>
+                                @elseif ($group->outstanding_fines_count > 0)
                                     <span class="badge badge-primary shrink-0">{{ $group->outstanding_fines_count }} open</span>
                                 @else
                                     <span class="badge badge-ghost shrink-0">Clear</span>

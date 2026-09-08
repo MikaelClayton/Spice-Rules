@@ -28,7 +28,9 @@ class NotifyWicketFine
 
         $this->fcm->sendToTokens($tokens, [
             'title' => $group->name,
-            'body' => $issuer->name.' fined you '.$fine->displayLabel().'. '.$fine->reason,
+            'body' => $group->isTournament()
+                ? "You've been fined 👀"
+                : $issuer->name.' fined you '.$fine->displayLabel().'. '.$fine->reason,
             'url' => route('wickets.show', $group),
         ]);
     }

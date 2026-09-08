@@ -19,7 +19,13 @@ class WicketGroupFactory extends Factory
         return [
             'user_id' => User::factory(),
             'name' => fake()->words(2, true),
+            'is_tournament' => false,
         ];
+    }
+
+    public function tournament(): static
+    {
+        return $this->state(fn (): array => ['is_tournament' => true]);
     }
 
     public function configure(): static

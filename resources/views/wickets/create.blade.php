@@ -38,6 +38,24 @@
                     >
                 </fieldset>
 
+                <div class="flex items-start gap-3">
+                    <input type="hidden" name="is_tournament" value="0">
+                    <input
+                        id="is_tournament"
+                        type="checkbox"
+                        name="is_tournament"
+                        value="1"
+                        class="toggle toggle-primary mt-0.5 shrink-0"
+                        @checked(old('is_tournament'))
+                    >
+                    <label for="is_tournament" class="min-w-0 flex-1 cursor-pointer">
+                        <span class="font-medium">Tournament</span>
+                        <span class="mt-0.5 block text-sm font-normal whitespace-normal text-base-content/70">
+                            Players can't see their own fines — only what they gave.
+                        </span>
+                    </label>
+                </div>
+
                 <button type="submit" class="btn btn-primary btn-lg w-full">Create group</button>
             </form>
         </div>

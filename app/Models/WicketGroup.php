@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\WicketGroupRole;
 use Database\Factories\WicketGroupFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,11 +11,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['user_id', 'name'])]
+#[Fillable(['user_id', 'name', 'is_tournament'])]
 class WicketGroup extends Model
 {
     /** @use HasFactory<WicketGroupFactory> */
     use HasFactory;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_tournament' => 'boolean',
+        ];
+    }
 
     /**
      * @return BelongsTo<User, $this>
@@ -29,7 +40,9 @@ class WicketGroup extends Model
      */
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class)->withTimestamps();
+        return $this->belongsToMany(User::class)
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     /**
@@ -64,5 +77,33 @@ class WicketGroup extends Model
     public function isOwnedBy(?User $user): bool
     {
         return $user !== null && $this->user_id === $user->id;
+    }
+
+    public function isTournament(): bool
+    {
+        return $this->is_tournament === true;
+    }
+
+    public function memberRole(?User $user): WicketGroupRole
+    {
+        if ($user === null || ! $this->hasMember($user)) {
+            return WicketGroupRole::Member;
+        }
+
+        $value = $this->relationLoaded('users')
+            ? $this->users->firstWhere('id', $user->id)?->pivot?->role
+            : $this->users()->whereKey($user->id)->first()?->pivot?->role;
+
+        return WicketGroupRole::tryFrom((string) $value) ?? WicketGroupRole::Member;
+    }
+
+    public function isFinesMaster(?User $user): bool
+    {
+        return $this->memberRole($user)->isFinesMaster();
+    }
+
+    public function hidesOwnFinesFrom(?User $user): bool
+    {
+        return $user !== null && $this->isTournament();
     }
 }

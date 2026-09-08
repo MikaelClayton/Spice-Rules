@@ -41,7 +41,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/wickets/create', [WicketGroupController::class, 'create'])->name('wickets.create');
     Route::post('/wickets', [WicketGroupController::class, 'store'])->name('wickets.store');
     Route::get('/wickets/{wicketGroup}', [WicketGroupController::class, 'show'])->name('wickets.show');
+    Route::patch('/wickets/{wicketGroup}', [WicketGroupController::class, 'update'])->name('wickets.update');
     Route::post('/wickets/{wicketGroup}/members', [WicketGroupMemberController::class, 'store'])->name('wickets.members.store');
+    Route::patch('/wickets/{wicketGroup}/members/{user}', [WicketGroupMemberController::class, 'update'])
+        ->scopeBindings()
+        ->name('wickets.members.update');
     Route::delete('/wickets/{wicketGroup}/members/{user}', [WicketGroupMemberController::class, 'destroy'])
         ->scopeBindings()
         ->name('wickets.members.destroy');

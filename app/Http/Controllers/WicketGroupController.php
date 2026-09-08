@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Enums\WicketFineType;
 use App\Http\Requests\StoreWicketGroupRequest;
+use App\Http\Requests\UpdateWicketGroupRequest;
 use App\Models\User;
 use App\Models\WicketFine;
 use App\Models\WicketGroup;
 use App\Services\Wickets\BuildWicketActivity;
+use App\Services\Wickets\BuildWicketStandings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -44,6 +45,7 @@ class WicketGroupController extends Controller
             $group = WicketGroup::query()->create([
                 'user_id' => $request->user()->id,
                 'name' => $request->validated('name'),
+                'is_tournament' => $request->boolean('is_tournament'),
             ]);
 
             $group->users()->syncWithoutDetaching([$request->user()->id]);
@@ -56,15 +58,52 @@ class WicketGroupController extends Controller
             ->with('status', 'Group created. Add the rest of the crew.');
     }
 
-    public function show(Request $request, WicketGroup $wicketGroup, BuildWicketActivity $buildWicketActivity): View
+    public function update(UpdateWicketGroupRequest $request, WicketGroup $wicketGroup): RedirectResponse
     {
+        $wicketGroup->update([
+            'is_tournament' => $request->boolean('is_tournament'),
+        ]);
+
+        return redirect()
+            ->route('wickets.show', ['wicketGroup' => $wicketGroup, 'tab' => 'people'])
+            ->with('status', $request->boolean('is_tournament')
+                ? 'Tournament mode is on.'
+                : 'Tournament mode is off.');
+    }
+
+    public function show(
+        Request $request,
+        WicketGroup $wicketGroup,
+        BuildWicketActivity $buildWicketActivity,
+        BuildWicketStandings $buildWicketStandings,
+    ): View {
         abort_unless($wicketGroup->hasMember($request->user()), 403);
 
         $wicketGroup->load([
             'users' => fn ($query) => $query->orderBy('name')->orderBy('id'),
         ]);
 
+        $viewer = $request->user();
+        $hideOwnFines = $wicketGroup->hidesOwnFinesFrom($viewer);
         $activity = $buildWicketActivity->handle($wicketGroup);
+
+        if ($hideOwnFines) {
+            $activity = $activity
+                ->filter(function (array $item) use ($viewer): bool {
+                    if ($item['kind'] === 'drink') {
+                        return $item['log']?->user_id === $viewer->id;
+                    }
+
+                    $fine = $item['fine'];
+
+                    if ($fine === null || $fine->issued_to_user_id === $viewer->id) {
+                        return false;
+                    }
+
+                    return $fine->issued_by_user_id === $viewer->id;
+                })
+                ->values();
+        }
 
         $outstanding = $wicketGroup->fines()
             ->with(['issuedTo', 'issuedBy'])
@@ -73,35 +112,15 @@ class WicketGroupController extends Controller
             ->orderBy('id')
             ->get();
 
-        $standings = $wicketGroup->users
-            ->map(function (User $user) use ($outstanding): array {
-                $userFines = $outstanding->where('issued_to_user_id', $user->id);
-                $specials = $userFines
-                    ->filter(fn (WicketFine $fine): bool => $fine->type->isSip() === false)
-                    ->values();
-
-                return [
-                    'user' => $user,
-                    'sips' => $userFines->sum(fn (WicketFine $fine): int => $fine->remainingSips()),
-                    'specials' => $this->countSpecials($specials),
-                    'specialCount' => $specials->count(),
-                    'fines' => $userFines->values(),
-                ];
-            })
-            ->sortBy([
-                fn (array $left, array $right): int => $right['sips'] <=> $left['sips'],
-                fn (array $left, array $right): int => $right['specialCount'] <=> $left['specialCount'],
-                fn (array $left, array $right): int => $left['user']->name <=> $right['user']->name,
-                fn (array $left, array $right): int => $left['user']->id <=> $right['user']->id,
-            ])
-            ->values();
-
-        $viewer = $request->user();
+        $standings = $buildWicketStandings->handle($wicketGroup, $viewer, $outstanding);
         $myOutstanding = $outstanding->where('issued_to_user_id', $viewer->id);
         $myRemainingSips = $myOutstanding->sum(fn (WicketFine $fine): int => $fine->remainingSips());
         $mySpecials = $myOutstanding
             ->filter(fn (WicketFine $fine): bool => $fine->type->isSip() === false)
             ->values();
+        $mySpecialCounts = $hideOwnFines
+            ? $buildWicketStandings->hiddenSpecials()
+            : $buildWicketStandings->countSpecials($mySpecials);
 
         $availableUsers = User::query()
             ->whereNotIn('id', $wicketGroup->users->modelKeys())
@@ -113,12 +132,15 @@ class WicketGroupController extends Controller
             'group' => $wicketGroup,
             'activity' => $activity,
             'standings' => $standings,
+            'hideOwnFines' => $hideOwnFines,
             'myRemainingSips' => $myRemainingSips,
-            'mySipFines' => $myOutstanding
-                ->filter(fn (WicketFine $fine): bool => $fine->type->isSip())
-                ->values(),
-            'mySpecials' => $mySpecials,
-            'mySpecialCounts' => $this->countSpecials($mySpecials),
+            'mySipFines' => $hideOwnFines
+                ? collect()
+                : $myOutstanding
+                    ->filter(fn (WicketFine $fine): bool => $fine->type->isSip())
+                    ->values(),
+            'mySpecials' => $hideOwnFines ? collect() : $mySpecials,
+            'mySpecialCounts' => $mySpecialCounts,
             'fineTypes' => WicketFineType::specials(),
             'maxSipFine' => WicketFineType::MAX_SIP_FINE,
             'isOwner' => $wicketGroup->isOwnedBy($viewer),
@@ -132,26 +154,5 @@ class WicketGroupController extends Controller
         $tab = $request->string('tab')->toString();
 
         return in_array($tab, ['board', 'fine', 'drink', 'people'], true) ? $tab : 'board';
-    }
-
-    /**
-     * @param  Collection<int, WicketFine>  $specials
-     * @return Collection<int, array{type: WicketFineType, count: int}>
-     */
-    private function countSpecials(Collection $specials): Collection
-    {
-        $order = array_flip(array_map(
-            fn (WicketFineType $type): string => $type->value,
-            WicketFineType::specials(),
-        ));
-
-        return $specials
-            ->groupBy(fn (WicketFine $fine): string => $fine->type->value)
-            ->map(fn (Collection $group): array => [
-                'type' => $group->first()->type,
-                'count' => $group->count(),
-            ])
-            ->sortBy(fn (array $row): int => $order[$row['type']->value] ?? 99)
-            ->values();
     }
 }

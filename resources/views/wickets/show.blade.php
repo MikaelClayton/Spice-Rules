@@ -17,7 +17,7 @@
         $tab = 'fine';
     } elseif ($errors->has('sips')) {
         $tab = 'drink';
-    } elseif ($errors->has('user_ids') || $errors->has('user')) {
+    } elseif ($errors->hasAny(['user_ids', 'user', 'role', 'is_tournament'])) {
         $tab = 'people';
     }
 @endphp
@@ -29,7 +29,12 @@
 
     <div class="mb-5">
         <h1 class="text-2xl font-bold sm:text-3xl">{{ $group->name }}</h1>
-        <p class="mt-1 text-base-content/70">{{ $group->users->count() }} {{ $group->users->count() === 1 ? 'player' : 'players' }}</p>
+        <p class="mt-1 text-base-content/70">
+            {{ $group->users->count() }} {{ $group->users->count() === 1 ? 'player' : 'players' }}
+            @if ($group->isTournament())
+                · Tournament
+            @endif
+        </p>
     </div>
 
     @if (session('status'))
@@ -52,7 +57,7 @@
             >
                 <div class="rounded-box bg-base-200 p-4">
                     <dt class="text-xs font-semibold uppercase tracking-wide text-base-content/50">🍺 Sips</dt>
-                    <dd class="mt-1 text-3xl font-bold leading-none tabular-nums">{{ $myRemainingSips }}</dd>
+                    <dd class="mt-1 text-3xl font-bold leading-none tabular-nums">{{ $hideOwnFines ? '?' : $myRemainingSips }}</dd>
                 </div>
                 @foreach ($mySpecialCounts as $special)
                     <div class="rounded-box bg-base-200 p-4">
@@ -90,34 +95,42 @@
                                         'count' => $special['count'],
                                         'label' => $special['type']->label(),
                                         'type' => $special['type']->value,
+                                        'at_least' => $special['at_least'] ?? false,
                                     ])
                                 @endforeach
-                                @include('wickets.stat', [
-                                    'emoji' => '🍺',
-                                    'count' => $row['sips'],
-                                    'label' => $row['sips'] === 1 ? 'sip' : 'sips',
-                                    'type' => 'sips',
-                                ])
+                                @if ($row['showSips'])
+                                    @include('wickets.stat', [
+                                        'emoji' => '🍺',
+                                        'count' => $row['sips'],
+                                        'label' => $row['sips'] === 1 ? 'sip' : 'sips',
+                                        'type' => 'sips',
+                                        'at_least' => $row['sips_at_least'] ?? false,
+                                    ])
+                                @endif
                             </div>
                             <span class="shrink-0 text-base-content/40 transition group-open:rotate-180" aria-hidden="true">▾</span>
                         </div>
                     </summary>
                     <div class="card-body border-t border-base-300 px-5 py-4 sm:px-6" data-player-fines="{{ $row['user']->id }}">
-                        @forelse ($row['fines'] as $fine)
-                            <div class="flex items-center justify-between gap-3 border-t border-base-300 py-3 first:border-t-0 first:pt-0 last:pb-0" data-open-fine-id="{{ $fine->id }}">
-                                <p class="min-w-0 text-sm text-base-content/70">{{ $fine->reason }}</p>
-                                @include('wickets.stat', [
-                                    'emoji' => $fine->type->emoji(),
-                                    'count' => $fine->type->isSip() ? $fine->remainingSips() : 1,
-                                    'label' => $fine->type->isSip()
-                                        ? ($fine->remainingSips() === 1 ? 'sip' : 'sips')
-                                        : $fine->type->label(),
-                                    'type' => $fine->type->value,
-                                ])
-                            </div>
-                        @empty
-                            <p class="text-sm text-base-content/60">No open fines.</p>
-                        @endforelse
+                        @if ($row['finesHidden'])
+                            <p class="text-sm text-base-content/60">Your fines are hidden.</p>
+                        @else
+                            @forelse ($row['fines'] as $fine)
+                                <div class="flex items-center justify-between gap-3 border-t border-base-300 py-3 first:border-t-0 first:pt-0 last:pb-0" data-open-fine-id="{{ $fine->id }}">
+                                    <p class="min-w-0 text-sm text-base-content/70">{{ $fine->reason }}</p>
+                                    @include('wickets.stat', [
+                                        'emoji' => $fine->type->emoji(),
+                                        'count' => $fine->type->isSip() ? $fine->remainingSips() : 1,
+                                        'label' => $fine->type->isSip()
+                                            ? ($fine->remainingSips() === 1 ? 'sip' : 'sips')
+                                            : $fine->type->label(),
+                                        'type' => $fine->type->value,
+                                    ])
+                                </div>
+                            @empty
+                                <p class="text-sm text-base-content/60">No open fines.</p>
+                            @endforelse
+                        @endif
                     </div>
                 </details>
             @empty
@@ -444,7 +457,20 @@
                         <p class="text-sm text-base-content/70">Log what you just drank to knock sips off your fines.</p>
                     </div>
 
-                    @if ($mySipFines->isNotEmpty())
+                    @if ($hideOwnFines)
+                        <p class="text-sm text-base-content/70">Your sip fines are hidden in this tournament.</p>
+                        <form method="POST" action="{{ route('wickets.sips.store', $group) }}" class="space-y-2">
+                            @csrf
+                            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">How many sips?</p>
+                            <div class="grid grid-cols-4 gap-2">
+                                @foreach ([1, 2, 3, 4] as $count)
+                                    <button type="submit" name="sips" value="{{ $count }}" class="btn btn-lg h-16 text-xl tabular-nums">
+                                        {{ $count }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </form>
+                    @elseif ($mySipFines->isNotEmpty())
                         <ul class="space-y-2">
                             @foreach ($mySipFines as $fine)
                                 <li class="rounded-xl bg-base-200 px-3 py-2.5">
@@ -455,30 +481,32 @@
                         </ul>
                     @endif
 
-                    @if ($myRemainingSips > 0)
-                        <form method="POST" action="{{ route('wickets.sips.store', $group) }}" class="space-y-2">
-                            @csrf
-                            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">How many sips?</p>
-                            <div class="grid grid-cols-4 gap-2">
-                                @foreach ([1, 2, 3, 4] as $count)
-                                    @if ($count <= $myRemainingSips)
-                                        <button type="submit" name="sips" value="{{ $count }}" class="btn btn-lg h-16 text-xl tabular-nums">
-                                            {{ $count }}
-                                        </button>
-                                    @endif
-                                @endforeach
-                            </div>
-                            @if ($myRemainingSips > 4)
-                                <button type="submit" name="sips" value="{{ $myRemainingSips }}" class="btn btn-primary btn-lg w-full">
-                                    Drink the rest ({{ $myRemainingSips }})
-                                </button>
-                            @endif
-                        </form>
-                    @elseif ($mySpecials->isNotEmpty())
-                        <p class="text-sm text-base-content/70">No sip fines left. Specials still count until you mark them done.</p>
-                    @else
-                        <p class="text-sm text-base-content/70">You're clear. For now.</p>
-                    @endif
+                    @unless ($hideOwnFines)
+                        @if ($myRemainingSips > 0)
+                            <form method="POST" action="{{ route('wickets.sips.store', $group) }}" class="space-y-2">
+                                @csrf
+                                <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">How many sips?</p>
+                                <div class="grid grid-cols-4 gap-2">
+                                    @foreach ([1, 2, 3, 4] as $count)
+                                        @if ($count <= $myRemainingSips)
+                                            <button type="submit" name="sips" value="{{ $count }}" class="btn btn-lg h-16 text-xl tabular-nums">
+                                                {{ $count }}
+                                            </button>
+                                        @endif
+                                    @endforeach
+                                </div>
+                                @if ($myRemainingSips > 4)
+                                    <button type="submit" name="sips" value="{{ $myRemainingSips }}" class="btn btn-primary btn-lg w-full">
+                                        Drink the rest ({{ $myRemainingSips }})
+                                    </button>
+                                @endif
+                            </form>
+                        @elseif ($mySpecials->isNotEmpty())
+                            <p class="text-sm text-base-content/70">No sip fines left. Specials still count until you mark them done.</p>
+                        @else
+                            <p class="text-sm text-base-content/70">You're clear. For now.</p>
+                        @endif
+                    @endunless
                 </div>
             </section>
 
@@ -489,22 +517,26 @@
                         <p class="text-sm text-base-content/70">Down downs, funnels, and shoeys get ticked off here.</p>
                     </div>
 
-                    @forelse ($mySpecials as $special)
-                        <article class="rounded-xl bg-base-200 p-3.5">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <p class="font-semibold">{{ $special->type->emoji() }} {{ $special->displayLabel() }}</p>
-                                    <p class="mt-0.5 text-sm text-base-content/70">{{ $special->reason }}</p>
+                    @if ($hideOwnFines)
+                        <p class="text-sm text-base-content/70">Your specials are hidden in this tournament.</p>
+                    @else
+                        @forelse ($mySpecials as $special)
+                            <article class="rounded-xl bg-base-200 p-3.5">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold">{{ $special->type->emoji() }} {{ $special->displayLabel() }}</p>
+                                        <p class="mt-0.5 text-sm text-base-content/70">{{ $special->reason }}</p>
+                                    </div>
+                                    <form method="POST" action="{{ route('wickets.fines.completions.store', [$group, $special]) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-primary">Done</button>
+                                    </form>
                                 </div>
-                                <form method="POST" action="{{ route('wickets.fines.completions.store', [$group, $special]) }}">
-                                    @csrf
-                                    <button type="submit" class="btn btn-primary">Done</button>
-                                </form>
-                            </div>
-                        </article>
-                    @empty
-                        <p class="text-sm text-base-content/70">No down downs, funnels, or shoeys outstanding.</p>
-                    @endforelse
+                            </article>
+                        @empty
+                            <p class="text-sm text-base-content/70">No down downs, funnels, or shoeys outstanding.</p>
+                        @endforelse
+                    @endif
                 </div>
             </section>
         </div>
@@ -517,10 +549,37 @@
             @checked($tab === 'people')
         >
         <div class="tab-content mt-4 space-y-3">
-            @if ($errors->has('user_ids') || $errors->has('user'))
+            @if ($errors->has('user_ids') || $errors->has('user') || $errors->has('role') || $errors->has('is_tournament'))
                 <div role="alert" class="alert alert-error">
-                    <span>{{ $errors->first('user_ids') ?: $errors->first('user') }}</span>
+                    <span>{{ $errors->first('user_ids') ?: $errors->first('user') ?: $errors->first('role') ?: $errors->first('is_tournament') }}</span>
                 </div>
+            @endif
+
+            @if ($isOwner)
+                <section class="card bg-base-100 shadow-xl">
+                    <div class="card-body gap-4 p-4 sm:p-5">
+                        <div>
+                            <h2 class="card-title">Tournament</h2>
+                            <p class="text-sm text-base-content/70">Players can't see their own fines — only what they gave.</p>
+                        </div>
+                        <form method="POST" action="{{ route('wickets.update', $group) }}" class="space-y-3">
+                            @csrf
+                            @method('PATCH')
+                            <label class="label cursor-pointer justify-start gap-3">
+                                <input type="hidden" name="is_tournament" value="0">
+                                <input
+                                    type="checkbox"
+                                    name="is_tournament"
+                                    value="1"
+                                    class="toggle toggle-primary"
+                                    @checked(old('is_tournament', $group->is_tournament))
+                                >
+                                <span class="font-medium">Tournament mode</span>
+                            </label>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </form>
+                    </div>
+                </section>
             @endif
 
             <section class="card bg-base-100 shadow-xl">
@@ -528,24 +587,40 @@
                     <h2 class="card-title">Players</h2>
                     <ul class="divide-y divide-base-300">
                         @foreach ($group->users as $member)
-                            <li class="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                            <li class="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
                                 <span class="inline-block h-3 w-3 shrink-0 rounded-full" style="background: {{ $member->boardColor() }}"></span>
                                 <p class="min-w-0 flex-1 truncate font-medium">
                                     {{ $member->name }}
                                     @if ($group->isOwnedBy($member))
                                         <span class="font-normal text-base-content/50">owner</span>
                                     @endif
+                                    @if ($group->isFinesMaster($member))
+                                        <span class="font-normal text-base-content/50">fines master</span>
+                                    @endif
                                 </p>
                                 @if ($isOwner && ! $group->isOwnedBy($member))
-                                    <form
-                                        method="POST"
-                                        action="{{ route('wickets.members.destroy', [$group, $member]) }}"
-                                        onsubmit="return confirm('Remove this player from the group?')"
-                                    >
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-ghost btn-sm">Remove</button>
-                                    </form>
+                                    <div class="flex shrink-0 items-center gap-1">
+                                        <form method="POST" action="{{ route('wickets.members.update', [$group, $member]) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            @if ($group->isFinesMaster($member))
+                                                <input type="hidden" name="role" value="{{ \App\Enums\WicketGroupRole::Member->value }}">
+                                                <button type="submit" class="btn btn-ghost btn-sm">Remove role</button>
+                                            @else
+                                                <input type="hidden" name="role" value="{{ \App\Enums\WicketGroupRole::FinesMaster->value }}">
+                                                <button type="submit" class="btn btn-ghost btn-sm">Make Fines Master</button>
+                                            @endif
+                                        </form>
+                                        <form
+                                            method="POST"
+                                            action="{{ route('wickets.members.destroy', [$group, $member]) }}"
+                                            onsubmit="return confirm('Remove this player from the group?')"
+                                        >
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-ghost btn-sm">Remove</button>
+                                        </form>
+                                    </div>
                                 @endif
                             </li>
                         @endforeach
