@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Geoguesser;
 use App\Models\GeoguesserChallenge;
 use App\Services\Geoguessr\BuildGeoguessrInsights;
+use App\Services\Geoguessr\BuildGeoguessrToday;
+use App\Services\Geoguessr\BuildGeoguessrWeekly;
 use App\Services\Geoguessr\RankTodaysChallenges;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -15,17 +17,13 @@ class GeoguessrController extends Controller
     public function __construct(
         private readonly RankTodaysChallenges $ranker,
         private readonly BuildGeoguessrInsights $insights,
+        private readonly BuildGeoguessrToday $today,
+        private readonly BuildGeoguessrWeekly $weekly,
     ) {}
 
     public function index(): View
     {
-        $results = GeoguesserChallenge::query()
-            ->with('geoguesser.user')
-            ->whereDate('attempted_at', today())
-            ->orderByDesc('total_score')
-            ->orderBy('updated_at')
-            ->get();
-
+        $today = $this->today->handle();
         $history = GeoguesserChallenge::query()
             ->with(['geoguesser.user', 'rounds'])
             ->whereNotNull('total_score')
@@ -35,53 +33,14 @@ class GeoguessrController extends Controller
         $viewer = Auth::user();
 
         return view('geoguessr.index', [
-            'results' => $results,
+            ...$today,
             'activeTab' => $this->activeTab(),
             'board' => $this->boardPayload($history),
             'insights' => $this->insights->payload($history, $viewer?->id),
+            'weekly' => $this->weekly->payload($history, request()->string('week')->toString() ?: null),
             'dailies' => $this->dailiesPayload(),
             'progress' => $this->viewerProgress($viewer?->geoguesser),
-            'ranks' => $this->ranker->ranks($results),
-            ...$this->todayAwards($results),
         ]);
-    }
-
-    /**
-     * @param  Collection<int, GeoguesserChallenge>  $results
-     * @return array{closestDistance: int|null, furthestDistance: int|null, fewestSteps: int|null, mostSteps: int|null}
-     */
-    private function todayAwards(Collection $results): array
-    {
-        [$closest, $furthest] = $this->minMax($results, 'total_distance');
-        [$fewest, $most] = $this->minMax($results, 'total_steps_count');
-
-        return [
-            'closestDistance' => $closest,
-            'furthestDistance' => $furthest,
-            'fewestSteps' => $fewest,
-            'mostSteps' => $most,
-        ];
-    }
-
-    /**
-     * @param  Collection<int, GeoguesserChallenge>  $results
-     * @return array{0: int|null, 1: int|null}
-     */
-    private function minMax(Collection $results, string $column): array
-    {
-        $values = $results
-            ->pluck($column)
-            ->filter(fn ($value): bool => $value !== null)
-            ->map(fn ($value): int => (int) $value);
-
-        $min = $values->min();
-        $max = $values->max();
-
-        if ($values->count() < 2 || $min === $max) {
-            return [null, null];
-        }
-
-        return [$min, $max];
     }
 
     /**
@@ -122,7 +81,7 @@ class GeoguessrController extends Controller
     {
         $tab = request()->string('tab')->toString();
 
-        return in_array($tab, ['graphs', 'challenges'], true) ? $tab : 'today';
+        return in_array($tab, ['weekly', 'graphs', 'challenges'], true) ? $tab : 'today';
     }
 
     /**

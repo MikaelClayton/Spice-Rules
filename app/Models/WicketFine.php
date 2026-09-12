@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class WicketFine extends Model
 {
+    public const ACCUMULATION_REASON = 'Your sips reached 8, so the system gave you a down down for accumulation.';
+
     /** @use HasFactory<WicketFineFactory> */
     use HasFactory;
 
@@ -75,8 +77,23 @@ class WicketFine extends Model
         return $this->type->label();
     }
 
+    public function displayReason(): string
+    {
+        if ($this->isAccumulationDownDown()) {
+            return self::ACCUMULATION_REASON;
+        }
+
+        return $this->reason;
+    }
+
     public function isOutstanding(): bool
     {
         return $this->completed_at === null;
+    }
+
+    public function isAccumulationDownDown(): bool
+    {
+        return $this->type === WicketFineType::DownDown
+            && in_array($this->reason, [self::ACCUMULATION_REASON, '8 sips'], true);
     }
 }

@@ -79,8 +79,13 @@ function bindTabs(rootEl, onShowGraphs) {
 
             if (name === 'today') {
                 url.searchParams.delete('tab');
+                url.searchParams.delete('week');
             } else {
                 url.searchParams.set('tab', name);
+
+                if (name !== 'weekly') {
+                    url.searchParams.delete('week');
+                }
 
                 if (name === 'graphs') {
                     requestAnimationFrame(onShowGraphs);
@@ -366,7 +371,7 @@ function renderTrend(rootEl, rows, players, state, charts, theme, palette) {
     charts.trend = upsertChart(charts.trend, canvas, {
         type: 'line',
         data: { labels: labels.map(formatDate), datasets },
-        options: chartOptions(theme, state.metric, false),
+        options: chartOptions(theme, state.metric, false, state.metric === 'score' ? 25000 : null),
     });
 }
 
@@ -448,7 +453,7 @@ function upsertChart(existing, canvas, config) {
     return new Chart(canvas, config);
 }
 
-function chartOptions(theme, metric, horizontal) {
+function chartOptions(theme, metric, horizontal, metricMax = null) {
     return {
         responsive: true,
         maintainAspectRatio: false,
@@ -475,33 +480,40 @@ function chartOptions(theme, metric, horizontal) {
             },
         },
         scales: {
-            x: axisOptions(theme, metric, horizontal),
-            y: axisOptions(theme, metric, !horizontal),
+            x: axisOptions(theme, metric, horizontal, metricMax),
+            y: axisOptions(theme, metric, !horizontal, metricMax),
         },
     };
 }
 
-function axisOptions(theme, metric, isMetricAxis) {
+function axisOptions(theme, metric, isMetricAxis, metricMax = null) {
+    const ticks = isMetricAxis
+        ? {
+            color: theme.text,
+            maxTicksLimit: 5,
+            callback: (value) => formatCompact(value, metric),
+        }
+        : {
+            color: theme.text,
+            autoSkip: false,
+            maxRotation: 0,
+            callback(value) {
+                return this.getLabelForValue(value);
+            },
+        };
+
+    if (isMetricAxis && metricMax !== null) {
+        ticks.stepSize = metricMax / 5;
+    }
+
     return {
         beginAtZero: isMetricAxis,
+        ...(isMetricAxis && metricMax !== null ? { max: metricMax } : {}),
         grid: {
             color: theme.grid,
             drawBorder: false,
         },
-        ticks: isMetricAxis
-            ? {
-                color: theme.text,
-                maxTicksLimit: 5,
-                callback: (value) => formatCompact(value, metric),
-            }
-            : {
-                color: theme.text,
-                autoSkip: false,
-                maxRotation: 0,
-                callback(value) {
-                    return this.getLabelForValue(value);
-                },
-            },
+        ticks,
     };
 }
 

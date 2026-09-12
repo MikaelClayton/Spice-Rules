@@ -136,21 +136,41 @@ class WicketFineTest extends TestCase
                 'sips' => 1,
                 'reason' => 'One more',
             ])
-            ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'board']));
+            ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'board']))
+            ->assertSessionHas('status', 'Fine given to Sam Fine. Their sips reached 8, so the system gave them a down down for accumulation.');
 
         $this->assertSame(0, WicketFine::query()->where('type', WicketFineType::Sips)->whereNull('completed_at')->count());
         $this->assertDatabaseHas('wicket_fines', [
             'wicket_group_id' => $group->id,
             'issued_to_user_id' => $member->id,
             'type' => WicketFineType::DownDown->value,
-            'reason' => '8 sips',
+            'reason' => WicketFine::ACCUMULATION_REASON,
             'completed_at' => null,
         ]);
 
         $this->actingAs($member)
             ->get(route('wickets.show', $group))
             ->assertOk()
-            ->assertSee('8 sips became a down down.')
+            ->assertSee(WicketFine::ACCUMULATION_REASON)
+            ->assertSee('Down down');
+    }
+
+    public function test_legacy_accumulation_down_downs_show_the_full_explanation(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create(['name' => 'Sam Fine']);
+        $group = $this->groupWithMembers($owner, $member);
+        WicketFine::factory()->ofType(WicketFineType::DownDown)->create([
+            'wicket_group_id' => $group->id,
+            'issued_by_user_id' => $owner->id,
+            'issued_to_user_id' => $member->id,
+            'reason' => '8 sips',
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('wickets.show', $group))
+            ->assertOk()
+            ->assertSee(WicketFine::ACCUMULATION_REASON)
             ->assertSee('Down down');
     }
 
@@ -282,7 +302,7 @@ class WicketFineTest extends TestCase
                 'sips' => 1,
                 'reason' => 'Nope',
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('wickets.index'));
 
         $this->assertDatabaseCount('wicket_fines', 0);
     }
@@ -324,7 +344,7 @@ class WicketFineTest extends TestCase
 
     public function test_the_board_lists_a_players_open_fines_with_reasons(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['name' => 'Alex Tee']);
         $member = User::factory()->create(['name' => 'Sam Fine']);
         $group = $this->groupWithMembers($owner, $member);
         $openFine = WicketFine::factory()->ofType(WicketFineType::Sips, 2)->create([
@@ -346,6 +366,8 @@ class WicketFineTest extends TestCase
             ->assertSee('data-player-fines="'.$member->id.'"', false)
             ->assertSee('data-open-fine-id="'.$openFine->id.'"', false)
             ->assertSee('Still owing this one')
+            ->assertSee('from Alex Tee')
+            ->assertSee('Sips of beer still owed. Eight sips become a down down.')
             ->assertSee('data-stat-type="sips"', false)
             ->assertSee('data-stat-count="2"', false)
             ->assertSee('data-stat-bound="exact"', false)
@@ -373,7 +395,8 @@ class WicketFineTest extends TestCase
             ->assertSee('data-stat-bound="exact"', false)
             ->assertDontSee('data-stat-bound="at-least"', false)
             ->assertDontSee('Your fines are hidden.')
-            ->assertSee('Down down');
+            ->assertSee('Down down')
+            ->assertSee('Finish your drink in one go.');
     }
 
     public function test_sips_are_applied_to_the_oldest_fine_first(): void
@@ -556,7 +579,7 @@ class WicketFineTest extends TestCase
             ->post(route('wickets.sips.store', $group), [
                 'sips' => 1,
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('wickets.index'));
 
         $this->assertDatabaseCount('wicket_sip_logs', 0);
     }
@@ -587,7 +610,8 @@ class WicketFineTest extends TestCase
 
         $owner = User::factory()->create(['name' => 'Alex']);
         $member = User::factory()->create(['name' => 'Sam Fine']);
-        $group = $this->groupWithMembers($owner, $member);
+        $bystander = User::factory()->create(['name' => 'Pat']);
+        $group = $this->groupWithMembers($owner, $member, $bystander);
         $targetToken = DeviceToken::factory()->create([
             'user_id' => $member->id,
             'token' => str_repeat('t', 40),
@@ -595,6 +619,10 @@ class WicketFineTest extends TestCase
         $issuerToken = DeviceToken::factory()->create([
             'user_id' => $owner->id,
             'token' => str_repeat('i', 40),
+        ]);
+        $bystanderToken = DeviceToken::factory()->create([
+            'user_id' => $bystander->id,
+            'token' => str_repeat('b', 40),
         ]);
 
         $this->actingAs($owner)
@@ -610,6 +638,51 @@ class WicketFineTest extends TestCase
             && $request['message']['token'] === $targetToken->token
             && $request['message']['notification']['title'] === 'Club day'
             && $request['message']['notification']['body'] === 'Alex fined you 2 sips. Late to the first tee');
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'messages:send')
+            && $request['message']['token'] === $issuerToken->token);
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'messages:send')
+            && $request['message']['token'] === $bystanderToken->token);
+    }
+
+    public function test_the_group_is_notified_when_that_setting_is_on(): void
+    {
+        $this->enableFirebase();
+        $this->fakeFcm();
+
+        $owner = User::factory()->create(['name' => 'Alex']);
+        $member = User::factory()->create(['name' => 'Sam Fine']);
+        $bystander = User::factory()->create(['name' => 'Pat']);
+        $group = $this->groupWithMembers($owner, $member, $bystander);
+        $group->update(['notify_all_on_fine' => true]);
+        $targetToken = DeviceToken::factory()->create([
+            'user_id' => $member->id,
+            'token' => str_repeat('t', 40),
+        ]);
+        $issuerToken = DeviceToken::factory()->create([
+            'user_id' => $owner->id,
+            'token' => str_repeat('i', 40),
+        ]);
+        $bystanderToken = DeviceToken::factory()->create([
+            'user_id' => $bystander->id,
+            'token' => str_repeat('b', 40),
+        ]);
+
+        $this->actingAs($owner)
+            ->post(route('wickets.fines.store', $group), [
+                'issued_to_user_id' => $member->id,
+                'type' => WicketFineType::Sips->value,
+                'sips' => 2,
+                'reason' => 'Late to the first tee',
+            ])
+            ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'board']));
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://fcm.googleapis.com/v1/projects/spice-rules-test/messages:send'
+            && $request['message']['token'] === $targetToken->token
+            && $request['message']['notification']['body'] === 'Alex fined you 2 sips. Late to the first tee');
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://fcm.googleapis.com/v1/projects/spice-rules-test/messages:send'
+            && $request['message']['token'] === $bystanderToken->token
+            && $request['message']['notification']['title'] === 'Club day'
+            && $request['message']['notification']['body'] === 'Alex fined Sam Fine 2 sips for Late to the first tee');
         Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'messages:send')
             && $request['message']['token'] === $issuerToken->token);
     }

@@ -38,6 +38,16 @@ enum WicketFineType: string
         };
     }
 
+    public function description(): string
+    {
+        return match ($this) {
+            self::Sips => 'Sips of beer still owed. Eight sips become a down down.',
+            self::DownDown => 'Finish your drink in one go.',
+            self::Funnel => 'Drink through a funnel.',
+            self::Shoey => 'Drink from a shoe.',
+        };
+    }
+
     /**
      * @return list<self>
      */

@@ -20,12 +20,24 @@ class WicketGroupFactory extends Factory
             'user_id' => User::factory(),
             'name' => fake()->words(2, true),
             'is_tournament' => false,
+            'notify_all_on_fine' => false,
+            'is_active' => true,
         ];
     }
 
     public function tournament(): static
     {
         return $this->state(fn (): array => ['is_tournament' => true]);
+    }
+
+    public function notifiesAllOnFine(): static
+    {
+        return $this->state(fn (): array => ['notify_all_on_fine' => true]);
+    }
+
+    public function inactive(): static
+    {
+        return $this->state(fn (): array => ['is_active' => false]);
     }
 
     public function configure(): static

@@ -3,13 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\WicketFineType;
+use App\Http\Requests\DestroyWicketGroupRequest;
 use App\Http\Requests\StoreWicketGroupRequest;
 use App\Http\Requests\UpdateWicketGroupRequest;
 use App\Models\User;
-use App\Models\WicketFine;
 use App\Models\WicketGroup;
-use App\Services\Wickets\BuildWicketActivity;
-use App\Services\Wickets\BuildWicketStandings;
+use App\Services\Wickets\BuildWicketBoard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +20,7 @@ class WicketGroupController extends Controller
     {
         $groups = $request->user()
             ->wicketGroups()
+            ->active()
             ->withCount([
                 'users',
                 'fines as outstanding_fines_count' => fn ($query) => $query->whereNull('completed_at'),
@@ -46,6 +46,8 @@ class WicketGroupController extends Controller
                 'user_id' => $request->user()->id,
                 'name' => $request->validated('name'),
                 'is_tournament' => $request->boolean('is_tournament'),
+                'notify_all_on_fine' => $request->boolean('notify_all_on_fine'),
+                'is_active' => true,
             ]);
 
             $group->users()->syncWithoutDetaching([$request->user()->id]);
@@ -62,65 +64,32 @@ class WicketGroupController extends Controller
     {
         $wicketGroup->update([
             'is_tournament' => $request->boolean('is_tournament'),
+            'notify_all_on_fine' => $request->boolean('notify_all_on_fine'),
         ]);
 
         return redirect()
             ->route('wickets.show', ['wicketGroup' => $wicketGroup, 'tab' => 'people'])
-            ->with('status', $request->boolean('is_tournament')
-                ? 'Tournament mode is on.'
-                : 'Tournament mode is off.');
+            ->with('status', 'Group settings saved.');
+    }
+
+    public function destroy(DestroyWicketGroupRequest $request, WicketGroup $wicketGroup): RedirectResponse
+    {
+        $wicketGroup->update([
+            'is_active' => false,
+        ]);
+
+        return redirect()
+            ->route('wickets.index')
+            ->with('status', 'Group deleted.');
     }
 
     public function show(
         Request $request,
         WicketGroup $wicketGroup,
-        BuildWicketActivity $buildWicketActivity,
-        BuildWicketStandings $buildWicketStandings,
+        BuildWicketBoard $buildWicketBoard,
     ): View {
-        abort_unless($wicketGroup->hasMember($request->user()), 403);
-
-        $wicketGroup->load([
-            'users' => fn ($query) => $query->orderBy('name')->orderBy('id'),
-        ]);
-
         $viewer = $request->user();
-        $hideOwnFines = $wicketGroup->hidesOwnFinesFrom($viewer);
-        $activity = $buildWicketActivity->handle($wicketGroup);
-
-        if ($hideOwnFines) {
-            $activity = $activity
-                ->filter(function (array $item) use ($viewer): bool {
-                    if ($item['kind'] === 'drink') {
-                        return $item['log']?->user_id === $viewer->id;
-                    }
-
-                    $fine = $item['fine'];
-
-                    if ($fine === null || $fine->issued_to_user_id === $viewer->id) {
-                        return false;
-                    }
-
-                    return $fine->issued_by_user_id === $viewer->id;
-                })
-                ->values();
-        }
-
-        $outstanding = $wicketGroup->fines()
-            ->with(['issuedTo', 'issuedBy'])
-            ->whereNull('completed_at')
-            ->orderBy('created_at')
-            ->orderBy('id')
-            ->get();
-
-        $standings = $buildWicketStandings->handle($wicketGroup, $viewer, $outstanding);
-        $myOutstanding = $outstanding->where('issued_to_user_id', $viewer->id);
-        $myRemainingSips = $myOutstanding->sum(fn (WicketFine $fine): int => $fine->remainingSips());
-        $mySpecials = $myOutstanding
-            ->filter(fn (WicketFine $fine): bool => $fine->type->isSip() === false)
-            ->values();
-        $mySpecialCounts = $hideOwnFines
-            ? $buildWicketStandings->hiddenSpecials()
-            : $buildWicketStandings->countSpecials($mySpecials);
+        $board = $buildWicketBoard->handle($wicketGroup, $viewer);
 
         $availableUsers = User::query()
             ->whereNotIn('id', $wicketGroup->users->modelKeys())
@@ -130,17 +99,7 @@ class WicketGroupController extends Controller
 
         return view('wickets.show', [
             'group' => $wicketGroup,
-            'activity' => $activity,
-            'standings' => $standings,
-            'hideOwnFines' => $hideOwnFines,
-            'myRemainingSips' => $myRemainingSips,
-            'mySipFines' => $hideOwnFines
-                ? collect()
-                : $myOutstanding
-                    ->filter(fn (WicketFine $fine): bool => $fine->type->isSip())
-                    ->values(),
-            'mySpecials' => $hideOwnFines ? collect() : $mySpecials,
-            'mySpecialCounts' => $mySpecialCounts,
+            ...$board,
             'fineTypes' => WicketFineType::specials(),
             'maxSipFine' => WicketFineType::MAX_SIP_FINE,
             'isOwner' => $wicketGroup->isOwnedBy($viewer),

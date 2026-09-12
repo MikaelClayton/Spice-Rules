@@ -25,14 +25,15 @@ class BuildWicketStandings
      */
     public function handle(WicketGroup $group, User $viewer, Collection $outstanding): Collection
     {
-        $fog = $group->hidesOwnFinesFrom($viewer);
+        $hideOwnFines = $group->hidesOwnFinesFrom($viewer);
+        $fogOthers = $hideOwnFines && ! $group->canSeeAllFines($viewer);
 
         return $group->users
-            ->map(function (User $user) use ($outstanding, $viewer, $fog): array {
+            ->map(function (User $user) use ($outstanding, $viewer, $hideOwnFines, $fogOthers): array {
                 $userFines = $outstanding->where('issued_to_user_id', $user->id)->values();
-                $hideOwn = $fog && $user->is($viewer);
+                $hideOwn = $hideOwnFines && $user->is($viewer);
 
-                if ($fog && ! $hideOwn) {
+                if ($fogOthers && ! $hideOwn) {
                     $userFines = $userFines
                         ->where('issued_by_user_id', $viewer->id)
                         ->values();
@@ -56,7 +57,7 @@ class BuildWicketStandings
                     ->values();
                 $sips = $userFines->sum(fn (WicketFine $fine): int => $fine->remainingSips());
 
-                if ($fog) {
+                if ($fogOthers) {
                     return [
                         'user' => $user,
                         'sips' => $sips > 0 ? $sips : '?',

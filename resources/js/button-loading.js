@@ -38,7 +38,12 @@ document.addEventListener('submit', (event) => {
         return;
     }
 
-    if (form.getAttribute('method') === 'dialog' || form.hasAttribute('data-share-form')) {
+    if (
+        event.defaultPrevented
+        || form.getAttribute('method') === 'dialog'
+        || form.hasAttribute('data-share-form')
+        || form.hasAttribute('data-ajax')
+    ) {
         return;
     }
 

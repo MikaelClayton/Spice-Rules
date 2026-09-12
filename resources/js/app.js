@@ -1,7 +1,9 @@
 import './button-loading';
+import './live-poll';
 import './geoguessr-board';
 import './geoguessr-challenges';
 import './geoguessr-profile-challenges';
+import './pub-golf';
 import './push-notifications';
 import './wickets-sip-stepper';
 import './wickets-people-picker';

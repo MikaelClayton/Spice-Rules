@@ -22,6 +22,12 @@ class DashboardController extends Controller
                     'description' => 'Hand out fines, then drink them down.',
                     'available' => true,
                 ],
+                [
+                    'route' => 'pub-golf.index',
+                    'name' => 'Pub Golf',
+                    'description' => 'Start a crawl, log drinks, and see who lasted.',
+                    'available' => true,
+                ],
             ],
         ]);
     }

@@ -22,7 +22,7 @@ class ConvertSipsToDownDowns
                 'wicket_group_id' => $group->id,
                 'issued_by_user_id' => $issuedBy->id,
                 'issued_to_user_id' => $target->id,
-                'reason' => '8 sips',
+                'reason' => WicketFine::ACCUMULATION_REASON,
                 'type' => WicketFineType::DownDown,
                 'sips_owed' => 0,
             ]);

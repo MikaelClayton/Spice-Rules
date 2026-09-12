@@ -12,6 +12,7 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}">
+        @include('layouts.display-timezone')
         @if (app(\App\Services\Push\FirebaseConfig::class)->isClientConfigured())
             <script src="https://www.gstatic.com/firebasejs/{{ \App\Services\Push\FirebaseConfig::SDK_VERSION }}/firebase-app-compat.js"></script>
             <script src="https://www.gstatic.com/firebasejs/{{ \App\Services\Push\FirebaseConfig::SDK_VERSION }}/firebase-messaging-compat.js"></script>
@@ -23,12 +24,12 @@
             <div class="navbar-start">
                 <a href="{{ route('dashboard') }}" class="btn btn-ghost h-auto gap-2 px-2">
                     <img src="{{ asset('favicon.png') }}" alt="" class="h-8 w-8 rounded-lg">
-                    <span class="text-xl font-semibold">{{ config('app.name') }}</span>
+                    <span class="text-lg font-semibold sm:text-xl">{{ config('app.name') }}</span>
                 </a>
             </div>
             <div class="navbar-end">
                 <div class="dropdown dropdown-end">
-                    <div tabindex="0" role="button" class="btn btn-ghost">
+                    <div tabindex="0" role="button" class="btn btn-ghost max-w-36 truncate sm:max-w-none">
                         {{ Auth::user()->name }}
                     </div>
                     <ul tabindex="0" class="menu dropdown-content z-50 mt-3 w-52 rounded-box bg-base-100 p-2 shadow-lg">
@@ -51,7 +52,7 @@
             </div>
         </div>
 
-        <main class="mx-auto max-w-5xl px-4 py-6 sm:py-10">
+        <main class="mx-auto min-w-0 max-w-5xl px-4 py-6 sm:py-10">
             @yield('content')
         </main>
     </body>

@@ -20,6 +20,7 @@ class DashboardTest extends TestCase
             ->assertSee('Today')
             ->assertSee('GeoGuessr')
             ->assertSee('Wickets')
+            ->assertSee('Pub Golf')
             ->assertDontSee('Trivia')
             ->assertDontSee('Word Rush')
             ->assertDontSee('Admin');

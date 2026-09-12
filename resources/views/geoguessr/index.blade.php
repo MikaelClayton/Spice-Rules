@@ -55,113 +55,146 @@
             data-tab="today"
             @checked($activeTab === 'today')
         >
+        <div
+            class="tab-content mt-4 space-y-4"
+            data-live-poll
+            data-poll-url="{{ route('geoguessr.live') }}"
+            data-revision="{{ $revision }}"
+        >
+            <div data-live-region="today">
+                @include('geoguessr.today')
+            </div>
+        </div>
+
+        <input
+            type="radio"
+            name="geoguessr_tabs"
+            class="tab grow"
+            aria-label="Weekly"
+            data-tab="weekly"
+            @checked($activeTab === 'weekly')
+        >
         <div class="tab-content mt-4 space-y-4">
-            @if ($results->isEmpty())
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body gap-3 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Week</p>
+                    <div class="flex items-center gap-2">
+                        @if ($weekly['hasPrevious'])
+                            <a
+                                href="{{ route('geoguessr.index', ['tab' => 'weekly', 'week' => $weekly['previousStart']]) }}"
+                                class="btn btn-ghost btn-sm btn-square shrink-0"
+                                aria-label="Previous week"
+                            >←</a>
+                        @else
+                            <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" disabled aria-label="Previous week">←</button>
+                        @endif
+                        <div class="min-w-0 flex-1 text-center">
+                            <h2 class="text-lg font-bold leading-tight">{{ $weekly['label'] }}</h2>
+                            <p class="mt-0.5 text-sm text-base-content/70">Sunday to Sunday</p>
+                            @if ($weekly['isCurrent'])
+                                <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-primary">This week</p>
+                            @endif
+                        </div>
+                        @if ($weekly['hasNext'])
+                            <a
+                                href="{{ route('geoguessr.index', ['tab' => 'weekly', 'week' => $weekly['nextStart']]) }}"
+                                class="btn btn-ghost btn-sm btn-square shrink-0"
+                                aria-label="Next week"
+                            >→</a>
+                        @else
+                            <button type="button" class="btn btn-ghost btn-sm btn-square shrink-0" disabled aria-label="Next week">→</button>
+                        @endif
+                    </div>
+                    <p class="text-center text-xs text-base-content/55">{{ $weekly['range'] }} · {{ $weekly['daysLogged'] }}/7 days logged</p>
+                </div>
+            </section>
+
+            @if ($weekly['standings'] === [])
                 <div class="card bg-base-100 shadow-xl">
                     <div class="card-body">
-                        <h2 class="card-title">Today's results</h2>
-                        <p class="text-base-content/70">Nobody has logged a score yet today.</p>
+                        <h2 class="card-title">Standings</h2>
+                        <p class="text-base-content/70">Nobody has logged a daily this week yet.</p>
                     </div>
                 </div>
             @else
                 <ol class="space-y-2.5 sm:space-y-3">
-                    @foreach ($results as $index => $result)
-                        @php
-                            $place = $ranks[$result->id] ?? ($index + 1);
-                            $isYou = $result->geoguesser?->user_id === Auth::id();
-                            $name = $result->geoguesser?->user?->name ?? $result->geoguesser?->username;
-                            $nick = $result->geoguesser?->username;
-                            $rewards = [];
-
-                            if ($result->is_done_as_team) {
-                                $rewards[] = [
-                                    'emoji' => '🤝',
-                                    'label' => 'Played as a team',
-                                    'message' => '🤝 Played as a team',
-                                ];
-                            } else {
-                                if ($closestDistance !== null && $result->total_distance === $closestDistance) {
-                                    $rewards[] = [
-                                        'emoji' => '💪',
-                                        'label' => 'Closest to target',
-                                        'message' => '💪 Closest to target · '.number_format($result->total_distance / 1000, 1).' km',
-                                    ];
-                                }
-
-                                if ($furthestDistance !== null && $result->total_distance === $furthestDistance) {
-                                    $rewards[] = [
-                                        'emoji' => '💩',
-                                        'label' => 'Furthest from target',
-                                        'message' => '💩 Furthest from target · '.number_format($result->total_distance / 1000, 1).' km',
-                                    ];
-                                }
-
-                                if ($fewestSteps !== null && $result->total_steps_count === $fewestSteps) {
-                                    $rewards[] = [
-                                        'emoji' => '♿',
-                                        'label' => 'Least steps',
-                                        'message' => '♿ Least steps · '.number_format($result->total_steps_count),
-                                    ];
-                                }
-
-                                if ($mostSteps !== null && $result->total_steps_count === $mostSteps) {
-                                    $rewards[] = [
-                                        'emoji' => '🏃',
-                                        'label' => 'Most steps',
-                                        'message' => '🏃 Most steps · '.number_format($result->total_steps_count),
-                                    ];
-                                }
-                            }
-                        @endphp
-                        <li class="card bg-base-100 shadow-md {{ $isYou ? 'ring-2 ring-primary' : '' }}">
+                    @foreach ($weekly['standings'] as $row)
+                        <li class="card bg-base-100 shadow-md">
                             <div class="card-body p-3.5 sm:p-4">
                                 <div class="flex items-start gap-3">
-                                    <span @class([
-                                        'badge badge-md sm:badge-lg mt-0.5 shrink-0 tabular-nums',
-                                        'badge-warning' => $place === 1,
-                                        'badge-ghost' => $place === 2,
-                                        'badge-accent' => $place === 3,
-                                        'badge-neutral' => $place > 3,
-                                    ])>{{ $place }}</span>
+                                    <span
+                                        data-weekly-rank="{{ $row['place'] }}"
+                                        @class([
+                                            'badge badge-md sm:badge-lg mt-0.5 shrink-0 tabular-nums',
+                                            'badge-warning' => $row['place'] === 1,
+                                            'badge-ghost' => $row['place'] === 2,
+                                            'badge-accent' => $row['place'] === 3,
+                                            'badge-neutral' => $row['place'] > 3,
+                                        ])
+                                    >{{ $row['place'] }}</span>
                                     <div class="min-w-0 flex-1">
-                                        <div class="flex min-w-0 items-center gap-1">
-                                            <p class="truncate font-semibold leading-tight">{{ $name }}</p>
-                                            @foreach ($rewards as $reward)
-                                                <button
-                                                    type="button"
-                                                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base leading-none hover:bg-base-200 active:scale-95"
-                                                    data-reward="{{ $reward['message'] }}"
-                                                    aria-label="{{ $reward['label'] }}"
-                                                >{{ $reward['emoji'] }}</button>
-                                            @endforeach
-                                        </div>
-                                        @if ($nick && $nick !== $name)
-                                            <p class="mt-0.5 truncate text-xs text-base-content/55">{{ $nick }}</p>
-                                        @endif
-                                    </div>
-                                    <div class="shrink-0 text-right">
-                                        <p class="text-lg font-bold leading-none tabular-nums sm:text-xl">{{ number_format($result->total_score) }}</p>
-                                        <p class="mt-1.5 text-xs tabular-nums text-base-content/60">
-                                            @if ($result->total_distance)
-                                                {{ number_format($result->total_distance / 1000, 1) }} km
-                                            @else
-                                                Distance pending
-                                            @endif
+                                        <p class="flex min-w-0 items-center gap-2 font-semibold leading-tight">
+                                            <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background: {{ $row['color'] }}"></span>
+                                            <span class="truncate">{{ $row['label'] }}</span>
                                         </p>
-                                        <p class="text-xs tabular-nums text-base-content/60">
-                                            @if ($result->total_steps_count)
-                                                {{ number_format($result->total_steps_count) }} steps
-                                            @else
-                                                Steps pending
+                                        <p class="mt-1 text-xs text-base-content/60">
+                                            {{ $row['played'] }}/7 days
+                                            <span class="text-base-content/30">·</span>
+                                            avg {{ number_format($row['average']) }}
+                                            @if ($row['best'] !== null)
+                                                <span class="text-base-content/30">·</span>
+                                                best {{ number_format($row['best']) }}
+                                                @if ($row['bestDate'])
+                                                    ({{ $row['bestDate'] }})
+                                                @endif
                                             @endif
                                         </p>
                                     </div>
+                                    <p class="shrink-0 text-lg font-bold leading-none tabular-nums sm:text-xl">{{ number_format($row['total']) }}</p>
                                 </div>
                             </div>
                         </li>
                     @endforeach
                 </ol>
             @endif
+
+            <section class="card bg-base-100 shadow-xl">
+                <div class="card-body gap-3 p-4">
+                    <h2 class="card-title text-base">The week</h2>
+                    <p class="text-sm text-base-content/70">Each daily from this Sunday through Saturday. Next Sunday starts the new week.</p>
+                    <ol class="space-y-2">
+                        @foreach ($weekly['days'] as $day)
+                            <li @class([
+                                'rounded-xl bg-base-200 p-3',
+                                'ring-2 ring-primary' => $day['isToday'],
+                            ])>
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <p class="font-semibold leading-tight">{{ $day['name'] }}</p>
+                                    <p class="text-xs text-base-content/55">{{ $day['short'] }}</p>
+                                </div>
+                                @if ($day['results'] === [])
+                                    <p class="mt-2 text-sm text-base-content/55">No scores</p>
+                                @else
+                                    <ul class="mt-2 space-y-1.5">
+                                        @foreach ($day['results'] as $index => $result)
+                                            <li class="flex items-center gap-2 text-sm">
+                                                <span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {{ $result['color'] }}"></span>
+                                                <span class="min-w-0 flex-1 truncate {{ $index === 0 ? 'font-semibold' : '' }}">{{ $result['label'] }}</span>
+                                                @if ($result['team'])
+                                                    <span aria-label="Played as a team">🤝</span>
+                                                @endif
+                                                <span class="shrink-0 tabular-nums {{ $index === 0 ? 'font-semibold' : 'text-base-content/70' }}">
+                                                    {{ $result['score'] === null ? '—' : number_format($result['score']) }}
+                                                </span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ol>
+                </div>
+            </section>
         </div>
 
         <input

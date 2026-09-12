@@ -5,13 +5,15 @@ namespace App\Models;
 use App\Enums\WicketGroupRole;
 use Database\Factories\WicketGroupFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['user_id', 'name', 'is_tournament'])]
+#[Fillable(['user_id', 'name', 'is_tournament', 'notify_all_on_fine', 'is_active'])]
 class WicketGroup extends Model
 {
     /** @use HasFactory<WicketGroupFactory> */
@@ -24,7 +26,15 @@ class WicketGroup extends Model
     {
         return [
             'is_tournament' => 'boolean',
+            'notify_all_on_fine' => 'boolean',
+            'is_active' => 'boolean',
         ];
+    }
+
+    #[Scope]
+    protected function active(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
     }
 
     /**
@@ -84,6 +94,16 @@ class WicketGroup extends Model
         return $this->is_tournament === true;
     }
 
+    public function notifiesAllOnFine(): bool
+    {
+        return $this->notify_all_on_fine === true;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->is_active === true;
+    }
+
     public function memberRole(?User $user): WicketGroupRole
     {
         if ($user === null || ! $this->hasMember($user)) {
@@ -100,6 +120,11 @@ class WicketGroup extends Model
     public function isFinesMaster(?User $user): bool
     {
         return $this->memberRole($user)->isFinesMaster();
+    }
+
+    public function canSeeAllFines(?User $user): bool
+    {
+        return $this->isOwnedBy($user) || $this->isFinesMaster($user);
     }
 
     public function hidesOwnFinesFrom(?User $user): bool

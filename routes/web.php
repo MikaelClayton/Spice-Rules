@@ -9,12 +9,26 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\FirebaseMessagingServiceWorkerController;
 use App\Http\Controllers\GeoguessrController;
+use App\Http\Controllers\GeoguessrLiveController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PubGolfChatMessageController;
+use App\Http\Controllers\PubGolfChatReadController;
+use App\Http\Controllers\PubGolfCrawlController;
+use App\Http\Controllers\PubGolfCrawlJoinController;
+use App\Http\Controllers\PubGolfCrawlLeaveController;
+use App\Http\Controllers\PubGolfCrawlRejoinController;
+use App\Http\Controllers\PubGolfCustomDrinkController;
+use App\Http\Controllers\PubGolfDrinkLogController;
+use App\Http\Controllers\PubGolfDrinkUndoController;
+use App\Http\Controllers\PubGolfRecapController;
 use App\Http\Controllers\WicketFineCompletionController;
 use App\Http\Controllers\WicketFineController;
 use App\Http\Controllers\WicketGroupController;
+use App\Http\Controllers\WicketGroupLiveController;
 use App\Http\Controllers\WicketGroupMemberController;
 use App\Http\Controllers\WicketSipLogController;
+use App\Http\Middleware\EnsurePubGolfCrawlParticipant;
+use App\Http\Middleware\EnsureWicketGroupMember;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -37,23 +51,44 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/geoguessr', [GeoguessrController::class, 'index'])->name('geoguessr.index');
+    Route::get('/geoguessr/live', GeoguessrLiveController::class)->name('geoguessr.live');
+    Route::get('/pub-golf', [PubGolfCrawlController::class, 'index'])->name('pub-golf.index');
+    Route::post('/pub-golf', [PubGolfCrawlController::class, 'store'])->name('pub-golf.store');
+    Route::post('/pub-golf/joins', [PubGolfCrawlJoinController::class, 'store'])->name('pub-golf.joins.store');
+    Route::middleware(EnsurePubGolfCrawlParticipant::class)->group(function () {
+        Route::get('/pub-golf/{pubGolfCrawl}', [PubGolfCrawlController::class, 'show'])->name('pub-golf.show');
+        Route::post('/pub-golf/{pubGolfCrawl}/drinks', [PubGolfDrinkLogController::class, 'store'])->name('pub-golf.drinks.store');
+        Route::post('/pub-golf/{pubGolfCrawl}/custom-drinks', [PubGolfCustomDrinkController::class, 'store'])->name('pub-golf.custom-drinks.store');
+        Route::delete('/pub-golf/{pubGolfCrawl}/custom-drinks/{pubGolfCustomDrink}', [PubGolfCustomDrinkController::class, 'destroy'])->name('pub-golf.custom-drinks.destroy');
+        Route::post('/pub-golf/{pubGolfCrawl}/drinks/undo', [PubGolfDrinkUndoController::class, 'store'])->name('pub-golf.drinks.undo');
+        Route::post('/pub-golf/{pubGolfCrawl}/leave', [PubGolfCrawlLeaveController::class, 'store'])->name('pub-golf.leave.store');
+        Route::post('/pub-golf/{pubGolfCrawl}/rejoins', [PubGolfCrawlRejoinController::class, 'store'])->name('pub-golf.rejoins.store');
+        Route::get('/pub-golf/{pubGolfCrawl}/chat', [PubGolfChatMessageController::class, 'index'])->name('pub-golf.chat.index');
+        Route::post('/pub-golf/{pubGolfCrawl}/chat', [PubGolfChatMessageController::class, 'store'])->name('pub-golf.chat.store');
+        Route::post('/pub-golf/{pubGolfCrawl}/chat/read', [PubGolfChatReadController::class, 'store'])->name('pub-golf.chat.read');
+        Route::get('/pub-golf/{pubGolfCrawl}/recap', [PubGolfRecapController::class, 'show'])->name('pub-golf.recap.show');
+    });
     Route::get('/wickets', [WicketGroupController::class, 'index'])->name('wickets.index');
     Route::get('/wickets/create', [WicketGroupController::class, 'create'])->name('wickets.create');
     Route::post('/wickets', [WicketGroupController::class, 'store'])->name('wickets.store');
-    Route::get('/wickets/{wicketGroup}', [WicketGroupController::class, 'show'])->name('wickets.show');
-    Route::patch('/wickets/{wicketGroup}', [WicketGroupController::class, 'update'])->name('wickets.update');
-    Route::post('/wickets/{wicketGroup}/members', [WicketGroupMemberController::class, 'store'])->name('wickets.members.store');
-    Route::patch('/wickets/{wicketGroup}/members/{user}', [WicketGroupMemberController::class, 'update'])
-        ->scopeBindings()
-        ->name('wickets.members.update');
-    Route::delete('/wickets/{wicketGroup}/members/{user}', [WicketGroupMemberController::class, 'destroy'])
-        ->scopeBindings()
-        ->name('wickets.members.destroy');
-    Route::post('/wickets/{wicketGroup}/fines', [WicketFineController::class, 'store'])->name('wickets.fines.store');
-    Route::post('/wickets/{wicketGroup}/sips', [WicketSipLogController::class, 'store'])->name('wickets.sips.store');
-    Route::post('/wickets/{wicketGroup}/fines/{fine}/completions', [WicketFineCompletionController::class, 'store'])
-        ->scopeBindings()
-        ->name('wickets.fines.completions.store');
+    Route::middleware(EnsureWicketGroupMember::class)->group(function () {
+        Route::get('/wickets/{wicketGroup}', [WicketGroupController::class, 'show'])->name('wickets.show');
+        Route::get('/wickets/{wicketGroup}/live', WicketGroupLiveController::class)->name('wickets.live');
+        Route::patch('/wickets/{wicketGroup}', [WicketGroupController::class, 'update'])->name('wickets.update');
+        Route::delete('/wickets/{wicketGroup}', [WicketGroupController::class, 'destroy'])->name('wickets.destroy');
+        Route::post('/wickets/{wicketGroup}/members', [WicketGroupMemberController::class, 'store'])->name('wickets.members.store');
+        Route::patch('/wickets/{wicketGroup}/members/{user}', [WicketGroupMemberController::class, 'update'])
+            ->scopeBindings()
+            ->name('wickets.members.update');
+        Route::delete('/wickets/{wicketGroup}/members/{user}', [WicketGroupMemberController::class, 'destroy'])
+            ->scopeBindings()
+            ->name('wickets.members.destroy');
+        Route::post('/wickets/{wicketGroup}/fines', [WicketFineController::class, 'store'])->name('wickets.fines.store');
+        Route::post('/wickets/{wicketGroup}/sips', [WicketSipLogController::class, 'store'])->name('wickets.sips.store');
+        Route::post('/wickets/{wicketGroup}/fines/{fine}/completions', [WicketFineCompletionController::class, 'store'])
+            ->scopeBindings()
+            ->name('wickets.fines.completions.store');
+    });
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/geoguessr', [ProfileController::class, 'updateGeoguessr'])->name('profile.geoguessr.update');

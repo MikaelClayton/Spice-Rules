@@ -17,7 +17,7 @@
         $tab = 'fine';
     } elseif ($errors->has('sips')) {
         $tab = 'drink';
-    } elseif ($errors->hasAny(['user_ids', 'user', 'role', 'is_tournament'])) {
+    } elseif ($errors->hasAny(['user_ids', 'user', 'role', 'is_tournament', 'name'])) {
         $tab = 'people';
     }
 @endphp
@@ -43,35 +43,16 @@
         </div>
     @endif
 
-    <section class="card bg-base-100 shadow-xl mb-5">
-        <div class="card-body gap-3 p-4 sm:p-5">
-            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">You owe</p>
-            <dl
-                @class([
-                    'grid gap-3',
-                    'grid-cols-1' => $mySpecialCounts->isEmpty(),
-                    'grid-cols-2' => $mySpecialCounts->isNotEmpty(),
-                    'sm:grid-cols-3' => $mySpecialCounts->count() === 2,
-                    'sm:grid-cols-4' => $mySpecialCounts->count() >= 3,
-                ])
-            >
-                <div class="rounded-box bg-base-200 p-4">
-                    <dt class="text-xs font-semibold uppercase tracking-wide text-base-content/50">🍺 Sips</dt>
-                    <dd class="mt-1 text-3xl font-bold leading-none tabular-nums">{{ $hideOwnFines ? '?' : $myRemainingSips }}</dd>
-                </div>
-                @foreach ($mySpecialCounts as $special)
-                    <div class="rounded-box bg-base-200 p-4">
-                        <dt class="text-xs font-semibold uppercase tracking-wide text-base-content/50">
-                            {{ $special['type']->emoji() }} {{ $special['type']->label() }}
-                        </dt>
-                        <dd class="mt-1 text-3xl font-bold leading-none tabular-nums">{{ $special['count'] }}</dd>
-                    </div>
-                @endforeach
-            </dl>
+    <div
+        data-live-poll
+        data-poll-url="{{ route('wickets.live', $group) }}"
+        data-revision="{{ $revision }}"
+    >
+        <div data-live-region="owe">
+            @include('wickets.owe')
         </div>
-    </section>
 
-    <div class="tabs tabs-box w-full">
+        <div class="tabs tabs-box w-full">
         <input
             type="radio"
             name="wickets_tabs"
@@ -80,127 +61,9 @@
             @checked($tab === 'board')
         >
         <div class="tab-content mt-4 space-y-3">
-            @forelse ($standings as $row)
-                <details class="card group bg-base-100 shadow-md {{ $row['user']->id === Auth::id() ? 'ring-2 ring-primary' : '' }}">
-                    <summary class="card-body cursor-pointer list-none p-3.5 sm:p-4 [&::-webkit-details-marker]:hidden">
-                        <div class="flex items-center gap-3">
-                            <span class="inline-block h-3 w-3 shrink-0 rounded-full" style="background: {{ $row['user']->boardColor() }}"></span>
-                            <p class="min-w-0 flex-1 truncate font-semibold leading-tight">
-                                {{ $row['user']->name }}
-                            </p>
-                            <div class="flex shrink-0 items-center gap-3">
-                                @foreach ($row['specials'] as $special)
-                                    @include('wickets.stat', [
-                                        'emoji' => $special['type']->emoji(),
-                                        'count' => $special['count'],
-                                        'label' => $special['type']->label(),
-                                        'type' => $special['type']->value,
-                                        'at_least' => $special['at_least'] ?? false,
-                                    ])
-                                @endforeach
-                                @if ($row['showSips'])
-                                    @include('wickets.stat', [
-                                        'emoji' => '🍺',
-                                        'count' => $row['sips'],
-                                        'label' => $row['sips'] === 1 ? 'sip' : 'sips',
-                                        'type' => 'sips',
-                                        'at_least' => $row['sips_at_least'] ?? false,
-                                    ])
-                                @endif
-                            </div>
-                            <span class="shrink-0 text-base-content/40 transition group-open:rotate-180" aria-hidden="true">▾</span>
-                        </div>
-                    </summary>
-                    <div class="card-body border-t border-base-300 px-5 py-4 sm:px-6" data-player-fines="{{ $row['user']->id }}">
-                        @if ($row['finesHidden'])
-                            <p class="text-sm text-base-content/60">Your fines are hidden.</p>
-                        @else
-                            @forelse ($row['fines'] as $fine)
-                                <div class="flex items-center justify-between gap-3 border-t border-base-300 py-3 first:border-t-0 first:pt-0 last:pb-0" data-open-fine-id="{{ $fine->id }}">
-                                    <p class="min-w-0 text-sm text-base-content/70">{{ $fine->reason }}</p>
-                                    @include('wickets.stat', [
-                                        'emoji' => $fine->type->emoji(),
-                                        'count' => $fine->type->isSip() ? $fine->remainingSips() : 1,
-                                        'label' => $fine->type->isSip()
-                                            ? ($fine->remainingSips() === 1 ? 'sip' : 'sips')
-                                            : $fine->type->label(),
-                                        'type' => $fine->type->value,
-                                    ])
-                                </div>
-                            @empty
-                                <p class="text-sm text-base-content/60">No open fines.</p>
-                            @endforelse
-                        @endif
-                    </div>
-                </details>
-            @empty
-                <div class="card bg-base-100 shadow-xl">
-                    <div class="card-body">
-                        <h2 class="card-title">Nobody here yet</h2>
-                        <p class="text-base-content/70">Add players on the People tab.</p>
-                    </div>
-                </div>
-            @endforelse
-
-            <section class="card bg-base-100 shadow-xl">
-                <div class="card-body p-4">
-                    <h2 class="card-title text-base">Activity</h2>
-                    @forelse ($activity as $item)
-                        @if ($item['kind'] === 'drink')
-                            <div class="flex items-center justify-between gap-3 border-t border-base-300 py-3 first:border-t-0 first:pt-1">
-                                <div class="min-w-0">
-                                    <p class="font-semibold leading-tight">{{ $item['log']->user?->name ?? 'Unknown' }}</p>
-                                    <p class="mt-0.5 text-sm text-base-content/70">
-                                        Drank {{ $item['log']->sips === 1 ? '1 sip' : $item['log']->sips.' sips' }}
-                                    </p>
-                                    <p class="mt-1 text-xs text-base-content/50">{{ $item['occurred_at']?->diffForHumans() }}</p>
-                                </div>
-                                @include('wickets.stat', [
-                                    'emoji' => '🍺',
-                                    'count' => $item['log']->sips,
-                                    'label' => $item['log']->sips === 1 ? 'sip' : 'sips',
-                                    'type' => 'sips',
-                                ])
-                            </div>
-                        @elseif ($item['kind'] === 'special_done')
-                            <div class="flex items-center justify-between gap-3 border-t border-base-300 py-3 first:border-t-0 first:pt-1">
-                                <div class="min-w-0">
-                                    <p class="font-semibold leading-tight">{{ $item['fine']->issuedTo?->name ?? 'Unknown' }}</p>
-                                    <p class="mt-0.5 text-sm text-base-content/70">{{ $item['fine']->reason }}</p>
-                                    <p class="mt-1 text-xs text-base-content/50">Done · {{ $item['occurred_at']?->diffForHumans() }}</p>
-                                </div>
-                                @include('wickets.stat', [
-                                    'emoji' => $item['fine']->type->emoji(),
-                                    'count' => 1,
-                                    'label' => $item['fine']->type->label(),
-                                    'type' => $item['fine']->type->value,
-                                ])
-                            </div>
-                        @else
-                            <div class="flex items-center justify-between gap-3 border-t border-base-300 py-3 first:border-t-0 first:pt-1">
-                                <div class="min-w-0">
-                                    <p class="font-semibold leading-tight">
-                                        {{ $item['fine']->issuedTo?->name ?? 'Unknown' }}
-                                        <span class="font-medium text-base-content/50">from {{ $item['fine']->issuedBy?->name ?? 'Unknown' }}</span>
-                                    </p>
-                                    <p class="mt-0.5 text-sm text-base-content/70">{{ $item['fine']->reason }}</p>
-                                    <p class="mt-1 text-xs text-base-content/50">{{ $item['occurred_at']?->diffForHumans() }}</p>
-                                </div>
-                                @include('wickets.stat', [
-                                    'emoji' => $item['fine']->type->emoji(),
-                                    'count' => $item['fine']->type->isSip() ? $item['fine']->sips_owed : 1,
-                                    'label' => $item['fine']->type->isSip()
-                                        ? ($item['fine']->sips_owed === 1 ? 'sip' : 'sips')
-                                        : $item['fine']->type->label(),
-                                    'type' => $item['fine']->type->value,
-                                ])
-                            </div>
-                        @endif
-                    @empty
-                        <p class="text-sm text-base-content/70">Nothing yet. Someone's about to have a big night.</p>
-                    @endforelse
-                </div>
-            </section>
+            <div data-live-region="board">
+                @include('wickets.board')
+            </div>
         </div>
 
         <input
@@ -230,66 +93,12 @@
                         <fieldset class="fieldset">
                             <legend class="label">Who</legend>
                             <p class="mb-2 text-sm text-base-content/70">Search and pick one or more players.</p>
-                            @php
-                                $selectedMemberIds = collect(old('issued_to_user_ids', old('issued_to_user_id') ? [old('issued_to_user_id')] : []))
-                                    ->map(fn ($id): int => (int) $id);
-                            @endphp
-                            <div data-people-picker class="relative">
-                                <div class="flex min-h-12 flex-wrap items-center gap-1.5 rounded-field border border-base-300 bg-base-100 px-2 py-1.5">
-                                    <div data-people-chips class="flex flex-wrap gap-1.5 empty:hidden">
-                                        @foreach ($group->users as $member)
-                                            @if ($selectedMemberIds->contains($member->id))
-                                                <span class="badge badge-secondary max-w-[10rem] gap-1">
-                                                    <span class="truncate">{{ $member->name }}</span>
-                                                </span>
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                    <input
-                                        id="wicket-people-search"
-                                        type="search"
-                                        data-people-search
-                                        autocomplete="off"
-                                        autocorrect="off"
-                                        spellcheck="false"
-                                        role="combobox"
-                                        aria-autocomplete="list"
-                                        aria-controls="wicket-people-options"
-                                        aria-expanded="false"
-                                        aria-haspopup="listbox"
-                                        placeholder="Search players…"
-                                        class="min-h-9 min-w-[8rem] flex-1 bg-transparent px-1 text-base outline-none placeholder:text-base-content/40"
-                                    >
-                                </div>
-                                <ul
-                                    id="wicket-people-options"
-                                    data-people-list
-                                    role="listbox"
-                                    class="absolute z-40 mt-1 max-h-60 w-full overflow-y-auto rounded-box border border-base-300 bg-base-100 p-1 shadow-lg"
-                                >
-                                    @foreach ($group->users as $member)
-                                        <li
-                                            data-people-option
-                                            data-name="{{ str($member->name)->lower() }}"
-                                            data-label="{{ $member->name }}"
-                                            role="option"
-                                        >
-                                            <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-base-200 has-[:checked]:bg-base-200">
-                                                <input
-                                                    type="checkbox"
-                                                    name="issued_to_user_ids[]"
-                                                    value="{{ $member->id }}"
-                                                    class="checkbox checkbox-primary checkbox-sm"
-                                                    @checked($selectedMemberIds->contains($member->id))
-                                                >
-                                                <span class="inline-block h-3 w-3 shrink-0 rounded-full" style="background: {{ $member->boardColor() }}"></span>
-                                                <span class="min-w-0 flex-1 truncate font-medium">{{ $member->name }}</span>
-                                            </label>
-                                        </li>
-                                    @endforeach
-                                    <li data-people-empty hidden class="px-3 py-2 text-sm text-base-content/60">No matching players</li>
-                                </ul>
-                            </div>
+                            @include('wickets.people-picker', [
+                                'pickerId' => 'fine',
+                                'people' => $group->users,
+                                'inputName' => 'issued_to_user_ids[]',
+                                'selectedIds' => collect(old('issued_to_user_ids', old('issued_to_user_id') ? [old('issued_to_user_id')] : [])),
+                            ])
                         </fieldset>
 
                         <fieldset class="fieldset">
@@ -450,95 +259,9 @@
                 </div>
             @endif
 
-            <section class="card bg-base-100 shadow-xl">
-                <div class="card-body gap-4 p-4 sm:p-5">
-                    <div>
-                        <h2 class="card-title">Drink sips</h2>
-                        <p class="text-sm text-base-content/70">Log what you just drank to knock sips off your fines.</p>
-                    </div>
-
-                    @if ($hideOwnFines)
-                        <p class="text-sm text-base-content/70">Your sip fines are hidden in this tournament.</p>
-                        <form method="POST" action="{{ route('wickets.sips.store', $group) }}" class="space-y-2">
-                            @csrf
-                            <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">How many sips?</p>
-                            <div class="grid grid-cols-4 gap-2">
-                                @foreach ([1, 2, 3, 4] as $count)
-                                    <button type="submit" name="sips" value="{{ $count }}" class="btn btn-lg h-16 text-xl tabular-nums">
-                                        {{ $count }}
-                                    </button>
-                                @endforeach
-                            </div>
-                        </form>
-                    @elseif ($mySipFines->isNotEmpty())
-                        <ul class="space-y-2">
-                            @foreach ($mySipFines as $fine)
-                                <li class="rounded-xl bg-base-200 px-3 py-2.5">
-                                    <p class="font-semibold tabular-nums">{{ $fine->remainingSips() }} {{ $fine->remainingSips() === 1 ? 'sip' : 'sips' }}</p>
-                                    <p class="text-sm text-base-content/70">{{ $fine->reason }}</p>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-
-                    @unless ($hideOwnFines)
-                        @if ($myRemainingSips > 0)
-                            <form method="POST" action="{{ route('wickets.sips.store', $group) }}" class="space-y-2">
-                                @csrf
-                                <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">How many sips?</p>
-                                <div class="grid grid-cols-4 gap-2">
-                                    @foreach ([1, 2, 3, 4] as $count)
-                                        @if ($count <= $myRemainingSips)
-                                            <button type="submit" name="sips" value="{{ $count }}" class="btn btn-lg h-16 text-xl tabular-nums">
-                                                {{ $count }}
-                                            </button>
-                                        @endif
-                                    @endforeach
-                                </div>
-                                @if ($myRemainingSips > 4)
-                                    <button type="submit" name="sips" value="{{ $myRemainingSips }}" class="btn btn-primary btn-lg w-full">
-                                        Drink the rest ({{ $myRemainingSips }})
-                                    </button>
-                                @endif
-                            </form>
-                        @elseif ($mySpecials->isNotEmpty())
-                            <p class="text-sm text-base-content/70">No sip fines left. Specials still count until you mark them done.</p>
-                        @else
-                            <p class="text-sm text-base-content/70">You're clear. For now.</p>
-                        @endif
-                    @endunless
-                </div>
-            </section>
-
-            <section class="card bg-base-100 shadow-xl">
-                <div class="card-body gap-3 p-4 sm:p-5">
-                    <div>
-                        <h2 class="card-title">Specials</h2>
-                        <p class="text-sm text-base-content/70">Down downs, funnels, and shoeys get ticked off here.</p>
-                    </div>
-
-                    @if ($hideOwnFines)
-                        <p class="text-sm text-base-content/70">Your specials are hidden in this tournament.</p>
-                    @else
-                        @forelse ($mySpecials as $special)
-                            <article class="rounded-xl bg-base-200 p-3.5">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="font-semibold">{{ $special->type->emoji() }} {{ $special->displayLabel() }}</p>
-                                        <p class="mt-0.5 text-sm text-base-content/70">{{ $special->reason }}</p>
-                                    </div>
-                                    <form method="POST" action="{{ route('wickets.fines.completions.store', [$group, $special]) }}">
-                                        @csrf
-                                        <button type="submit" class="btn btn-primary">Done</button>
-                                    </form>
-                                </div>
-                            </article>
-                        @empty
-                            <p class="text-sm text-base-content/70">No down downs, funnels, or shoeys outstanding.</p>
-                        @endforelse
-                    @endif
-                </div>
-            </section>
+            <div class="space-y-3" data-live-region="drink">
+                @include('wickets.drink')
+            </div>
         </div>
 
         <input
@@ -548,38 +271,11 @@
             aria-label="People"
             @checked($tab === 'people')
         >
-        <div class="tab-content mt-4 space-y-3">
-            @if ($errors->has('user_ids') || $errors->has('user') || $errors->has('role') || $errors->has('is_tournament'))
+        <div class="tab-content mt-4 space-y-3 overflow-visible">
+            @if ($errors->has('user_ids') || $errors->has('user') || $errors->has('role') || $errors->has('is_tournament') || $errors->has('name'))
                 <div role="alert" class="alert alert-error">
-                    <span>{{ $errors->first('user_ids') ?: $errors->first('user') ?: $errors->first('role') ?: $errors->first('is_tournament') }}</span>
+                    <span>{{ $errors->first('user_ids') ?: $errors->first('user') ?: $errors->first('role') ?: $errors->first('is_tournament') ?: $errors->first('name') }}</span>
                 </div>
-            @endif
-
-            @if ($isOwner)
-                <section class="card bg-base-100 shadow-xl">
-                    <div class="card-body gap-4 p-4 sm:p-5">
-                        <div>
-                            <h2 class="card-title">Tournament</h2>
-                            <p class="text-sm text-base-content/70">Players can't see their own fines — only what they gave.</p>
-                        </div>
-                        <form method="POST" action="{{ route('wickets.update', $group) }}" class="space-y-3">
-                            @csrf
-                            @method('PATCH')
-                            <label class="label cursor-pointer justify-start gap-3">
-                                <input type="hidden" name="is_tournament" value="0">
-                                <input
-                                    type="checkbox"
-                                    name="is_tournament"
-                                    value="1"
-                                    class="toggle toggle-primary"
-                                    @checked(old('is_tournament', $group->is_tournament))
-                                >
-                                <span class="font-medium">Tournament mode</span>
-                            </label>
-                            <button type="submit" class="btn btn-primary">Save</button>
-                        </form>
-                    </div>
-                </section>
             @endif
 
             <section class="card bg-base-100 shadow-xl">
@@ -628,8 +324,8 @@
                 </div>
             </section>
 
-            <section class="card bg-base-100 shadow-xl">
-                <div class="card-body gap-4 p-4 sm:p-5">
+            <section class="card overflow-visible bg-base-100 shadow-xl">
+                <div class="card-body gap-4 overflow-visible p-4 sm:p-5">
                     <div>
                         <h2 class="card-title">Add players</h2>
                         <p class="text-sm text-base-content/70">Anyone on Spice Rules can be added to this group.</p>
@@ -642,27 +338,100 @@
                             @csrf
                             <fieldset class="fieldset">
                                 <legend class="label">People</legend>
-                                <div class="max-h-80 space-y-1 overflow-y-auto">
-                                    @foreach ($availableUsers as $person)
-                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-base-200">
-                                            <input
-                                                type="checkbox"
-                                                name="user_ids[]"
-                                                value="{{ $person->id }}"
-                                                class="checkbox checkbox-primary"
-                                                @checked(collect(old('user_ids', []))->map(fn ($id): int => (int) $id)->contains($person->id))
-                                            >
-                                            <span class="inline-block h-3 w-3 shrink-0 rounded-full" style="background: {{ $person->boardColor() }}"></span>
-                                            <span class="min-w-0 flex-1 truncate font-medium">{{ $person->name }}</span>
-                                        </label>
-                                    @endforeach
-                                </div>
+                                <p class="mb-2 text-sm text-base-content/70">Search and pick one or more players.</p>
+                                @include('wickets.people-picker', [
+                                    'pickerId' => 'members',
+                                    'people' => $availableUsers,
+                                    'inputName' => 'user_ids[]',
+                                    'selectedIds' => collect(old('user_ids', [])),
+                                ])
                             </fieldset>
                             <button type="submit" class="btn btn-primary btn-lg w-full">Add to group</button>
                         </form>
                     @endif
                 </div>
             </section>
+
+            @if ($isOwner)
+                <section class="card bg-base-100 shadow-xl">
+                    <div class="card-body gap-4 p-4 sm:p-5">
+                        <div class="min-w-0">
+                            <h2 class="card-title whitespace-normal">Group settings</h2>
+                            <p class="mt-1 text-sm whitespace-normal text-base-content/70">These apply to everyone in this group.</p>
+                        </div>
+                        <form method="POST" action="{{ route('wickets.update', $group) }}" class="space-y-4">
+                            @csrf
+                            @method('PATCH')
+                            <div class="flex w-full min-w-0 items-start gap-3">
+                                <input type="hidden" name="is_tournament" value="0">
+                                <input
+                                    id="is_tournament"
+                                    type="checkbox"
+                                    name="is_tournament"
+                                    value="1"
+                                    class="toggle toggle-primary mt-0.5 shrink-0"
+                                    @checked(old('is_tournament', $group->is_tournament))
+                                >
+                                <label for="is_tournament" class="min-w-0 flex-1 cursor-pointer">
+                                    <span class="font-medium">Tournament mode</span>
+                                    <span class="mt-0.5 block text-sm font-normal whitespace-normal text-base-content/70">
+                                        Players can't see their own fines — only what they gave.
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="flex w-full min-w-0 items-start gap-3">
+                                <input type="hidden" name="notify_all_on_fine" value="0">
+                                <input
+                                    id="notify_all_on_fine"
+                                    type="checkbox"
+                                    name="notify_all_on_fine"
+                                    value="1"
+                                    class="toggle toggle-primary mt-0.5 shrink-0"
+                                    @checked(old('notify_all_on_fine', $group->notify_all_on_fine))
+                                >
+                                <label for="notify_all_on_fine" class="min-w-0 flex-1 cursor-pointer">
+                                    <span class="font-medium">Notify the group</span>
+                                    <span class="mt-0.5 block text-sm font-normal whitespace-normal text-base-content/70">
+                                        Everyone except the person giving the fine gets a ping, like “Alex fined Sam 2 sips for being late.” The person fined still gets their usual notification.
+                                    </span>
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </form>
+                    </div>
+                </section>
+            @endif
+
+            @if ($isOwner)
+                <section class="card bg-base-100 shadow-xl">
+                    <div class="card-body gap-4 p-4 sm:p-5">
+                        <div class="min-w-0">
+                            <h2 class="card-title whitespace-normal">Delete group</h2>
+                            <p class="mt-1 text-sm whitespace-normal text-base-content/70">This cannot be undone from the app. The group will disappear for everyone in it.</p>
+                        </div>
+                        <div role="alert" class="alert alert-warning">
+                            <span class="min-w-0 whitespace-normal">Type <span class="font-semibold">{{ $group->name }}</span> to confirm. Fines and history stay on file, but nobody will see this group.</span>
+                        </div>
+                        <form method="POST" action="{{ route('wickets.destroy', $group) }}" class="space-y-4">
+                            @csrf
+                            @method('DELETE')
+                            <fieldset class="fieldset">
+                                <legend class="label">Group name</legend>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value="{{ old('name') }}"
+                                    class="input input-bordered w-full"
+                                    autocomplete="off"
+                                    required
+                                >
+                            </fieldset>
+                            <button type="submit" class="btn btn-error w-full sm:w-auto">Delete group</button>
+                        </form>
+                    </div>
+                </section>
+            @endif
+        </div>
         </div>
     </div>
 @endsection

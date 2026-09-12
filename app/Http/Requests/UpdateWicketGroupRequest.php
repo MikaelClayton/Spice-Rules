@@ -23,6 +23,7 @@ class UpdateWicketGroupRequest extends FormRequest
     {
         return [
             'is_tournament' => ['required', 'boolean'],
+            'notify_all_on_fine' => ['sometimes', 'boolean'],
         ];
     }
 }

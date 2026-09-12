@@ -7,6 +7,7 @@
         <title>@yield('title', config('app.name'))</title>
         <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
         <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
+        @include('layouts.display-timezone')
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-base-200">

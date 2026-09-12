@@ -36,7 +36,7 @@ function createChip(id, label) {
 
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.className = 'leading-none text-secondary-content/70 hover:text-secondary-content';
+    remove.className = 'btn btn-circle btn-xs border-0 bg-base-100/90 text-base-content/70 shadow-sm';
     remove.setAttribute('data-people-chip-remove', id);
     remove.setAttribute('aria-label', `Remove ${label}`);
     remove.textContent = '×';

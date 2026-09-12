@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CronRun;
+use App\Services\Cron\RecordCronRun;
 use App\Services\Geoguessr\SyncActiveGeoguessers;
 use Illuminate\Console\Command;
 
@@ -12,42 +13,19 @@ class SyncGeoguessrCommand extends Command
 
     protected $description = 'Pull GeoGuessr profiles, weekly dailies, and streaks for active players with an ncfa cookie';
 
-    public function handle(SyncActiveGeoguessers $sync): int
+    public function handle(SyncActiveGeoguessers $sync, RecordCronRun $recordCronRun): int
     {
-        $started = hrtime(true);
-        $run = CronRun::query()->create([
-            'command' => 'geoguessr:sync',
-            'status' => 'running',
-            'profiles_synced' => 0,
-            'duration_ms' => 0,
-            'started_at' => now(),
-        ]);
+        $result = $recordCronRun->handle(
+            'geoguessr:sync',
+            fn (CronRun $run): array => $sync->handle($run, (bool) $this->option('force')),
+        );
 
-        try {
-            $result = $sync->handle($run, (bool) $this->option('force'));
-            $run->update([
-                'status' => 'success',
-                'profiles_synced' => $result['synced'],
-                'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
-                'finished_at' => now(),
-            ]);
+        $this->info("Synced {$result['synced']} GeoGuessr profile(s).");
 
-            $this->info("Synced {$result['synced']} GeoGuessr profile(s).");
-
-            if ($result['skipped'] > 0) {
-                $this->info("Skipped {$result['skipped']} already synced for today. Use --force to refresh.");
-            }
-
-            return self::SUCCESS;
-        } catch (\Throwable $exception) {
-            $run->update([
-                'status' => 'failed',
-                'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
-                'error_message' => $exception->getMessage(),
-                'finished_at' => now(),
-            ]);
-
-            throw $exception;
+        if ($result['skipped'] > 0) {
+            $this->info("Skipped {$result['skipped']} already synced for today. Use --force to refresh.");
         }
+
+        return self::SUCCESS;
     }
 }

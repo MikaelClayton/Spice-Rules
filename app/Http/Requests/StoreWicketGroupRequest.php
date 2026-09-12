@@ -19,6 +19,7 @@ class StoreWicketGroupRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:80'],
             'is_tournament' => ['sometimes', 'boolean'],
+            'notify_all_on_fine' => ['sometimes', 'boolean'],
         ];
     }
 

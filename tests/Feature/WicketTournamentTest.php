@@ -44,6 +44,7 @@ class WicketTournamentTest extends TestCase
         $this->assertDatabaseHas('wicket_groups', [
             'name' => 'Club champs',
             'is_tournament' => true,
+            'notify_all_on_fine' => false,
         ]);
     }
 
@@ -57,9 +58,26 @@ class WicketTournamentTest extends TestCase
                 'is_tournament' => '1',
             ])
             ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
-            ->assertSessionHas('status', 'Tournament mode is on.');
+            ->assertSessionHas('status', 'Group settings saved.');
 
         $this->assertTrue($group->fresh()->isTournament());
+    }
+
+    public function test_owners_can_turn_group_fine_notifications_on(): void
+    {
+        $owner = User::factory()->create();
+        $group = WicketGroup::factory()->create(['user_id' => $owner->id]);
+
+        $this->actingAs($owner)
+            ->patch(route('wickets.update', $group), [
+                'is_tournament' => '0',
+                'notify_all_on_fine' => '1',
+            ])
+            ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
+            ->assertSessionHas('status', 'Group settings saved.');
+
+        $this->assertTrue($group->fresh()->notifiesAllOnFine());
+        $this->assertFalse($group->fresh()->isTournament());
     }
 
     public function test_members_cannot_turn_tournament_mode_on(): void
@@ -143,6 +161,12 @@ class WicketTournamentTest extends TestCase
             ->get(route('wickets.show', $group))
             ->assertOk()
             ->assertSee('data-stat-count="?"', false)
+            ->assertSeeInOrder([
+                'data-stat-type="sips"',
+                'data-stat-type="down_down"',
+                'data-stat-type="funnel"',
+                'data-stat-type="shoey"',
+            ], false)
             ->assertDontSee('data-stat-count="5"', false)
             ->assertDontSee('Secret own down down')
             ->assertDontSee('data-open-fine-id="'.$fines->first()->id.'"', false)
@@ -205,25 +229,26 @@ class WicketTournamentTest extends TestCase
     public function test_a_tournament_shows_a_lower_bound_for_fines_the_viewer_gave(): void
     {
         $owner = User::factory()->create();
+        $issuer = User::factory()->create(['name' => 'Alex Tee']);
         $member = User::factory()->create(['name' => 'Sam Fine']);
-        $group = $this->tournamentGroup($owner, $member);
+        $group = $this->tournamentGroup($owner, $issuer, $member);
         WicketFine::factory()->ofType(WicketFineType::DownDown)->count(5)->create([
             'wicket_group_id' => $group->id,
-            'issued_by_user_id' => $owner->id,
+            'issued_by_user_id' => $issuer->id,
             'issued_to_user_id' => $member->id,
-            'reason' => 'Owner down down',
+            'reason' => 'Alex down down',
         ]);
         WicketFine::factory()->ofType(WicketFineType::Sips, 2)->create([
             'wicket_group_id' => $group->id,
-            'issued_by_user_id' => $owner->id,
+            'issued_by_user_id' => $issuer->id,
             'issued_to_user_id' => $member->id,
-            'reason' => 'Owner sips',
+            'reason' => 'Alex sips',
         ]);
 
-        $this->actingAs($owner)
+        $this->actingAs($issuer)
             ->get(route('wickets.show', $group))
             ->assertOk()
-            ->assertSee('Owner down down')
+            ->assertSee('Alex down down')
             ->assertSee('data-stat-type="down_down"', false)
             ->assertSee('data-stat-count="5"', false)
             ->assertSee('data-stat-bound="at-least"', false)
@@ -238,8 +263,9 @@ class WicketTournamentTest extends TestCase
     {
         $owner = User::factory()->create();
         $issuer = User::factory()->create();
+        $viewer = User::factory()->create();
         $untouched = User::factory()->create(['name' => 'Melissa Kapp']);
-        $group = $this->tournamentGroup($owner, $issuer, $untouched);
+        $group = $this->tournamentGroup($owner, $issuer, $viewer, $untouched);
         WicketFine::factory()->ofType(WicketFineType::DownDown)->count(3)->create([
             'wicket_group_id' => $group->id,
             'issued_by_user_id' => $issuer->id,
@@ -247,7 +273,7 @@ class WicketTournamentTest extends TestCase
             'reason' => 'Hidden Melissa down down',
         ]);
 
-        $this->actingAs($owner)
+        $this->actingAs($viewer)
             ->get(route('wickets.show', $group))
             ->assertOk()
             ->assertSee('Melissa Kapp')
@@ -261,7 +287,31 @@ class WicketTournamentTest extends TestCase
             ->assertDontSee('data-stat-bound="at-least"', false);
     }
 
-    public function test_a_tournament_fines_master_cannot_see_fines_they_did_not_give(): void
+    public function test_a_tournament_owner_sees_other_players_exact_fines(): void
+    {
+        $owner = User::factory()->create();
+        $issuer = User::factory()->create();
+        $member = User::factory()->create(['name' => 'Melissa Kapp']);
+        $group = $this->tournamentGroup($owner, $issuer, $member);
+        WicketFine::factory()->ofType(WicketFineType::DownDown)->count(3)->create([
+            'wicket_group_id' => $group->id,
+            'issued_by_user_id' => $issuer->id,
+            'issued_to_user_id' => $member->id,
+            'reason' => 'Melissa down down',
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('wickets.show', $group))
+            ->assertOk()
+            ->assertSee('Melissa down down')
+            ->assertSee('data-stat-type="down_down"', false)
+            ->assertSee('data-stat-count="3"', false)
+            ->assertSee('data-stat-bound="exact"', false)
+            ->assertDontSee('data-stat-bound="at-least"', false)
+            ->assertSee('Your fines are hidden.');
+    }
+
+    public function test_a_tournament_fines_master_sees_other_players_exact_fines(): void
     {
         $owner = User::factory()->create();
         $master = User::factory()->create(['name' => 'Alex Tee']);
@@ -276,13 +326,22 @@ class WicketTournamentTest extends TestCase
             'issued_to_user_id' => $target->id,
             'reason' => 'Owner down down',
         ]);
+        WicketFine::factory()->ofType(WicketFineType::Shoey)->create([
+            'wicket_group_id' => $group->id,
+            'issued_by_user_id' => $owner->id,
+            'issued_to_user_id' => $master->id,
+            'reason' => 'Secret master shoey',
+        ]);
 
         $this->actingAs($master)
             ->get(route('wickets.show', $group))
             ->assertOk()
-            ->assertDontSee('Owner down down')
-            ->assertDontSee('data-stat-count="5"', false)
-            ->assertSee('data-stat-bound="hidden"', false)
+            ->assertSee('Owner down down')
+            ->assertSee('data-stat-count="5"', false)
+            ->assertSee('data-stat-bound="exact"', false)
+            ->assertDontSee('data-stat-bound="at-least"', false)
+            ->assertDontSee('Secret master shoey')
+            ->assertSee('Your fines are hidden.')
             ->assertSee('fines master');
     }
 
@@ -312,6 +371,42 @@ class WicketTournamentTest extends TestCase
             && $request['message']['token'] === $targetToken->token
             && $request['message']['notification']['title'] === 'Club day'
             && $request['message']['notification']['body'] === "You've been fined 👀");
+    }
+
+    public function test_a_tournament_group_can_still_notify_everyone_else(): void
+    {
+        $this->enableFirebase();
+        $this->fakeFcm();
+
+        $owner = User::factory()->create(['name' => 'Alex']);
+        $member = User::factory()->create(['name' => 'Sam Fine']);
+        $bystander = User::factory()->create(['name' => 'Pat']);
+        $group = $this->tournamentGroup($owner, $member, $bystander);
+        $group->update(['notify_all_on_fine' => true]);
+        $targetToken = DeviceToken::factory()->create([
+            'user_id' => $member->id,
+            'token' => str_repeat('t', 40),
+        ]);
+        $bystanderToken = DeviceToken::factory()->create([
+            'user_id' => $bystander->id,
+            'token' => str_repeat('b', 40),
+        ]);
+
+        $this->actingAs($owner)
+            ->post(route('wickets.fines.store', $group), [
+                'issued_to_user_id' => $member->id,
+                'type' => WicketFineType::Sips->value,
+                'sips' => 2,
+                'reason' => 'Late to the first tee',
+            ])
+            ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'board']));
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://fcm.googleapis.com/v1/projects/spice-rules-test/messages:send'
+            && $request['message']['token'] === $targetToken->token
+            && $request['message']['notification']['body'] === "You've been fined 👀");
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://fcm.googleapis.com/v1/projects/spice-rules-test/messages:send'
+            && $request['message']['token'] === $bystanderToken->token
+            && $request['message']['notification']['body'] === 'Alex fined Sam Fine 2 sips for Late to the first tee');
     }
 
     private function fakeFcm(): void

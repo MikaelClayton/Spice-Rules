@@ -47,9 +47,9 @@ class WicketFineController extends Controller
             : 'Fine given to '.$targets->count().' players.';
 
         if ($conversions === 1) {
-            $status .= ' 8 sips became a down down.';
+            $status .= ' Their sips reached 8, so the system gave them a down down for accumulation.';
         } elseif ($conversions > 1) {
-            $status .= ' '.$conversions.' down downs from sips.';
+            $status .= ' Their sips reached 8, so the system gave them '.$conversions.' down downs for accumulation.';
         }
 
         return redirect()

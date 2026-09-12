@@ -38,7 +38,7 @@
                     >
                 </fieldset>
 
-                <div class="flex items-start gap-3">
+                <div class="flex w-full min-w-0 items-start gap-3">
                     <input type="hidden" name="is_tournament" value="0">
                     <input
                         id="is_tournament"
@@ -52,6 +52,24 @@
                         <span class="font-medium">Tournament</span>
                         <span class="mt-0.5 block text-sm font-normal whitespace-normal text-base-content/70">
                             Players can't see their own fines — only what they gave.
+                        </span>
+                    </label>
+                </div>
+
+                <div class="flex w-full min-w-0 items-start gap-3">
+                    <input type="hidden" name="notify_all_on_fine" value="0">
+                    <input
+                        id="notify_all_on_fine"
+                        type="checkbox"
+                        name="notify_all_on_fine"
+                        value="1"
+                        class="toggle toggle-primary mt-0.5 shrink-0"
+                        @checked(old('notify_all_on_fine'))
+                    >
+                    <label for="notify_all_on_fine" class="min-w-0 flex-1 cursor-pointer">
+                        <span class="font-medium">Notify the group</span>
+                        <span class="mt-0.5 block text-sm font-normal whitespace-normal text-base-content/70">
+                            Everyone except the person giving the fine gets a ping, like “Alex fined Sam 2 sips for being late.”
                         </span>
                     </label>
                 </div>

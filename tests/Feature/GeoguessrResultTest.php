@@ -7,6 +7,7 @@ use App\Models\GeoguesserChallenge;
 use App\Models\GeoguesserRound;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class GeoguessrResultTest extends TestCase
@@ -44,7 +45,7 @@ class GeoguessrResultTest extends TestCase
             ->assertSeeInOrder(['Alex', 'Sam'])
             ->assertSee('18,420')
             ->assertSee('12,100')
-            ->assertSeeInOrder(['Today', 'Challenges', 'Graphs'])
+            ->assertSeeInOrder(['Today', 'Weekly', 'Challenges', 'Graphs'])
             ->assertDontSee('Duplicate a daily')
             ->assertDontSee('Update your score')
             ->assertDontSee('Log your score');
@@ -128,9 +129,14 @@ class GeoguessrResultTest extends TestCase
             ->get(route('geoguessr.index'))
             ->assertOk()
             ->assertSeeInOrder(['Alex', 'Bronwyn', 'Melissa', 'Nikhil'])
-            ->assertSeeInOrder(['>1</span>', '>1</span>', '>1</span>', '>4</span>'], false)
-            ->assertDontSee('>2</span>', false)
-            ->assertDontSee('>3</span>', false);
+            ->assertSeeInOrder([
+                'data-today-rank="1"',
+                'data-today-rank="1"',
+                'data-today-rank="1"',
+                'data-today-rank="4"',
+            ], false)
+            ->assertDontSee('data-today-rank="2"', false)
+            ->assertDontSee('data-today-rank="3"', false);
     }
 
     public function test_team_sync_shows_only_a_handshake_emoji(): void
@@ -578,5 +584,156 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('98.7654321')
             ->assertSee('data-locked="false"', false)
             ->assertDontSee('data-locked="true"', false);
+    }
+
+    public function test_the_weekly_tab_breaks_down_the_sunday_to_sunday_week(): void
+    {
+        $this->travelTo('2026-09-10 12:00:00');
+
+        $viewer = User::factory()->create(['name' => 'Viewer']);
+        $alex = User::factory()->create(['name' => 'Alex']);
+        $sam = User::factory()->create(['name' => 'Sam']);
+        $alexGeo = Geoguesser::factory()->create(['user_id' => $alex->id, 'username' => 'AlexGeo']);
+        $samGeo = Geoguesser::factory()->create(['user_id' => $sam->id, 'username' => 'SamGeo']);
+
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $alexGeo->id,
+            'attempted_at' => Carbon::parse('2026-09-07 09:00:00'),
+            'total_score' => 18000,
+            'total_distance' => 1_000_000,
+            'total_steps_count' => 120,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $samGeo->id,
+            'attempted_at' => Carbon::parse('2026-09-07 10:00:00'),
+            'total_score' => 12000,
+            'total_distance' => 2_000_000,
+            'total_steps_count' => 80,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $alexGeo->id,
+            'attempted_at' => Carbon::parse('2026-09-10 09:00:00'),
+            'total_score' => 21000,
+            'total_distance' => 500_000,
+            'total_steps_count' => 40,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $alexGeo->id,
+            'attempted_at' => Carbon::parse('2026-09-05 09:00:00'),
+            'total_score' => 9000,
+            'total_distance' => 3_000_000,
+            'total_steps_count' => 200,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'weekly']))
+            ->assertOk()
+            ->assertSee('Weekly')
+            ->assertSee('Sunday to Sunday')
+            ->assertSee('This week')
+            ->assertSee('6–13 Sep')
+            ->assertSee('Sun 6 Sep – Sun 13 Sep 2026')
+            ->assertSee('2/7 days logged')
+            ->assertSee('Alex (AlexGeo)')
+            ->assertSee('Sam (SamGeo)')
+            ->assertSee('39,000')
+            ->assertSee('12,000')
+            ->assertSee('data-weekly-rank="1"', false)
+            ->assertSee('data-weekly-rank="2"', false)
+            ->assertSee('2/7 days')
+            ->assertSee('1/7 days')
+            ->assertSee('Monday')
+            ->assertSee('Thursday')
+            ->assertSee('Sat 12')
+            ->assertDontSee('Sat 5');
+    }
+
+    public function test_the_weekly_tab_can_open_the_previous_sunday_week(): void
+    {
+        $this->travelTo('2026-09-10 12:00:00');
+
+        $viewer = User::factory()->create();
+        $player = User::factory()->create(['name' => 'Alex']);
+
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create(['user_id' => $player->id, 'username' => 'AlexGeo']),
+            'attempted_at' => Carbon::parse('2026-09-05 09:00:00'),
+            'total_score' => 9000,
+            'total_distance' => 1_000_000,
+            'total_steps_count' => 150,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'weekly', 'week' => '2026-08-30']))
+            ->assertOk()
+            ->assertSee('Sunday to Sunday')
+            ->assertSee('30 Aug – 6 Sep')
+            ->assertSee('9,000')
+            ->assertSee('Sun 30 Aug – Sun 6 Sep 2026')
+            ->assertDontSee('This week');
+    }
+
+    public function test_weekly_standings_share_rank_when_totals_tie(): void
+    {
+        $this->travelTo('2026-09-10 12:00:00');
+
+        $viewer = User::factory()->create(['name' => 'Viewer']);
+        $alex = Geoguesser::factory()->create([
+            'user_id' => User::factory()->create(['name' => 'Alex']),
+            'username' => 'AlexGeo',
+        ]);
+        $sam = Geoguesser::factory()->create([
+            'user_id' => User::factory()->create(['name' => 'Sam']),
+            'username' => 'SamGeo',
+        ]);
+        $pat = Geoguesser::factory()->create([
+            'user_id' => User::factory()->create(['name' => 'Pat']),
+            'username' => 'PatGeo',
+        ]);
+
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $alex->id,
+            'attempted_at' => Carbon::parse('2026-09-07 09:00:00'),
+            'total_score' => 15000,
+            'total_distance' => 1_000_000,
+            'total_steps_count' => 50,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $sam->id,
+            'attempted_at' => Carbon::parse('2026-09-08 09:00:00'),
+            'total_score' => 15000,
+            'total_distance' => 1_000_000,
+            'total_steps_count' => 50,
+        ]);
+        GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => $pat->id,
+            'attempted_at' => Carbon::parse('2026-09-09 09:00:00'),
+            'total_score' => 8000,
+            'total_distance' => 1_000_000,
+            'total_steps_count' => 50,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'weekly']))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'data-weekly-rank="1"',
+                'data-weekly-rank="1"',
+                'data-weekly-rank="3"',
+            ], false)
+            ->assertDontSee('data-weekly-rank="2"', false);
+    }
+
+    public function test_the_weekly_tab_shows_an_empty_state_when_the_week_has_no_dailies(): void
+    {
+        $this->travelTo('2026-09-10 12:00:00');
+
+        $viewer = User::factory()->create();
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'weekly']))
+            ->assertOk()
+            ->assertSee('Nobody has logged a daily this week yet.')
+            ->assertSee('0/7 days logged');
     }
 }

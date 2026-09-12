@@ -16,6 +16,7 @@ class WicketGroupTest extends TestCase
         $this->get(route('wickets.index'))->assertRedirect(route('login'));
         $this->get(route('wickets.create'))->assertRedirect(route('login'));
         $this->post(route('wickets.store'), ['name' => 'Club day'])->assertRedirect(route('login'));
+        $this->delete('/wickets/1')->assertRedirect(route('login'));
         $this->assertDatabaseCount('wicket_groups', 0);
     }
 
@@ -49,6 +50,7 @@ class WicketGroupTest extends TestCase
             'name' => 'Club day',
             'user_id' => $user->id,
             'is_tournament' => false,
+            'is_active' => true,
         ]);
         $this->assertDatabaseHas('user_wicket_group', [
             'wicket_group_id' => $group->id,
@@ -110,17 +112,62 @@ class WicketGroupTest extends TestCase
             ->assertSee('Search players')
             ->assertSee('Drink sips')
             ->assertSee('Add players')
-            ->assertDontSee('Remove');
+            ->assertDontSee('Remove')
+            ->assertDontSee('Delete group')
+            ->assertDontSee('Notify the group');
     }
 
-    public function test_non_members_cannot_view_a_group(): void
+    public function test_the_people_tab_uses_the_player_search_to_add_members(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        User::factory()->create(['name' => 'Alex Tee']);
+        $group = $this->groupWithMembers($owner, $member);
+
+        $this->actingAs($owner)
+            ->get(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
+            ->assertSee('Add players')
+            ->assertSeeInOrder(['Players', 'Add players', 'Group settings', 'Delete group'])
+            ->assertSee('Search and pick one or more players.')
+            ->assertSee('data-people-search', false)
+            ->assertSee('name="user_ids[]"', false)
+            ->assertSee('Alex Tee');
+    }
+
+    public function test_owners_see_the_delete_group_warning_on_the_people_tab(): void
+    {
+        $owner = User::factory()->create();
+        $group = WicketGroup::factory()->create([
+            'user_id' => $owner->id,
+            'name' => 'Club day',
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
+            ->assertOk()
+            ->assertSee('Delete group')
+            ->assertSee('nobody will see this group')
+            ->assertSee('Type')
+            ->assertSee('Notify the group');
+    }
+
+    public function test_non_members_are_redirected_to_the_groups_page(): void
     {
         $group = WicketGroup::factory()->create();
         $stranger = User::factory()->create();
 
         $this->actingAs($stranger)
             ->get(route('wickets.show', $group))
-            ->assertForbidden();
+            ->assertRedirect(route('wickets.index'));
+    }
+
+    public function test_an_unknown_group_id_redirects_to_the_groups_page(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/wickets/99999')
+            ->assertRedirect(route('wickets.index'));
     }
 
     public function test_owners_can_add_a_member(): void
@@ -172,7 +219,7 @@ class WicketGroupTest extends TestCase
             ->post(route('wickets.members.store', $group), [
                 'user_ids' => [$player->id],
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('wickets.index'));
 
         $this->assertFalse($group->hasMember($player));
     }
@@ -254,6 +301,125 @@ class WicketGroupTest extends TestCase
         $this->actingAs($owner)
             ->delete(route('wickets.members.destroy', [$group, $stranger]))
             ->assertNotFound();
+    }
+
+    public function test_owners_can_delete_a_group_by_confirming_its_name(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $group = $this->groupWithMembers($owner, $member);
+
+        $this->actingAs($owner)
+            ->delete(route('wickets.destroy', $group), [
+                'name' => 'Club day',
+            ])
+            ->assertRedirect(route('wickets.index'))
+            ->assertSessionHas('status', 'Group deleted.');
+
+        $this->assertDatabaseHas('wicket_groups', [
+            'id' => $group->id,
+            'name' => 'Club day',
+            'is_active' => false,
+        ]);
+        $this->assertTrue($group->fresh()->hasMember($member));
+
+        $this->actingAs($owner)
+            ->get(route('wickets.index'))
+            ->assertOk()
+            ->assertSee('No groups yet')
+            ->assertDontSee('Club day');
+    }
+
+    public function test_a_group_is_not_deleted_when_the_name_does_not_match(): void
+    {
+        $owner = User::factory()->create();
+        $group = WicketGroup::factory()->create([
+            'user_id' => $owner->id,
+            'name' => 'Club day',
+        ]);
+
+        $this->actingAs($owner)
+            ->from(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
+            ->delete(route('wickets.destroy', $group), [
+                'name' => 'Wrong name',
+            ])
+            ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
+            ->assertSessionHasErrors(['name' => 'Type the group name exactly to confirm.']);
+
+        $this->assertDatabaseHas('wicket_groups', [
+            'id' => $group->id,
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_a_blank_confirmation_name_is_rejected(): void
+    {
+        $owner = User::factory()->create();
+        $group = WicketGroup::factory()->create([
+            'user_id' => $owner->id,
+            'name' => 'Club day',
+        ]);
+
+        $this->actingAs($owner)
+            ->from(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
+            ->delete(route('wickets.destroy', $group), [
+                'name' => '   ',
+            ])
+            ->assertRedirect(route('wickets.show', ['wicketGroup' => $group, 'tab' => 'people']))
+            ->assertSessionHasErrors(['name' => 'Type the group name to confirm.']);
+
+        $this->assertDatabaseHas('wicket_groups', [
+            'id' => $group->id,
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_members_cannot_delete_a_group(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $group = $this->groupWithMembers($owner, $member);
+
+        $this->actingAs($member)
+            ->delete(route('wickets.destroy', $group), [
+                'name' => 'Club day',
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('wicket_groups', [
+            'id' => $group->id,
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_inactive_groups_are_hidden_from_members_and_the_list(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $active = WicketGroup::factory()->create([
+            'user_id' => $owner->id,
+            'name' => 'Live lot',
+        ]);
+        $inactive = WicketGroup::factory()->inactive()->create([
+            'user_id' => $owner->id,
+            'name' => 'Old lot',
+        ]);
+        $active->users()->syncWithoutDetaching([$member->id]);
+        $inactive->users()->syncWithoutDetaching([$member->id]);
+
+        $this->actingAs($member)
+            ->get(route('wickets.index'))
+            ->assertOk()
+            ->assertSee('Live lot')
+            ->assertDontSee('Old lot');
+
+        $this->actingAs($member)
+            ->get(route('wickets.show', $inactive))
+            ->assertRedirect(route('wickets.index'));
+
+        $this->actingAs($owner)
+            ->get(route('wickets.show', $inactive))
+            ->assertRedirect(route('wickets.index'));
     }
 
     private function groupWithMembers(User $owner, User ...$members): WicketGroup

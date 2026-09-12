@@ -24,4 +24,13 @@ class WicketFineTypeTest extends TestCase
         $this->assertFalse($type->isSip());
         $this->assertSame($label, $type->label());
     }
+
+    #[TestWith([WicketFineType::Sips, 'Sips of beer still owed. Eight sips become a down down.'])]
+    #[TestWith([WicketFineType::DownDown, 'Finish your drink in one go.'])]
+    #[TestWith([WicketFineType::Funnel, 'Drink through a funnel.'])]
+    #[TestWith([WicketFineType::Shoey, 'Drink from a shoe.'])]
+    public function test_fine_types_explain_what_they_are(WicketFineType $type, string $description): void
+    {
+        $this->assertSame($description, $type->description());
+    }
 }

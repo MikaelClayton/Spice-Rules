@@ -76,6 +76,38 @@ class User extends Authenticatable
         return $this->hasMany(WicketGroup::class);
     }
 
+    /**
+     * @return HasMany<PubGolfCrawl, $this>
+     */
+    public function startedPubGolfCrawls(): HasMany
+    {
+        return $this->hasMany(PubGolfCrawl::class);
+    }
+
+    /**
+     * @return HasMany<PubGolfParticipant, $this>
+     */
+    public function pubGolfParticipants(): HasMany
+    {
+        return $this->hasMany(PubGolfParticipant::class);
+    }
+
+    /**
+     * @return HasMany<PubGolfCustomDrink, $this>
+     */
+    public function pubGolfCustomDrinks(): HasMany
+    {
+        return $this->hasMany(PubGolfCustomDrink::class);
+    }
+
+    /**
+     * @return HasMany<PubGolfDrinkLog, $this>
+     */
+    public function pubGolfDrinkLogs(): HasMany
+    {
+        return $this->hasMany(PubGolfDrinkLog::class);
+    }
+
     public function boardColor(): string
     {
         if (is_string($this->color) && preg_match('/^#[0-9A-Fa-f]{6}$/', $this->color) === 1) {
