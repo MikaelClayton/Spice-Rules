@@ -10,11 +10,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['pub_golf_crawl_id', 'user_id', 'drink_id'])]
+#[Fillable(['pub_golf_crawl_id', 'user_id', 'drink_id', 'location', 'latitude', 'longitude'])]
 class PubGolfDrinkLog extends Model
 {
     /** @use HasFactory<PubGolfDrinkLogFactory> */
     use HasFactory;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'latitude' => 'float',
+            'longitude' => 'float',
+        ];
+    }
 
     /**
      * @return BelongsTo<PubGolfCrawl, $this>

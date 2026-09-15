@@ -3,6 +3,7 @@
 namespace App\Services\Geoguessr;
 
 use App\Models\GeoguesserChallenge;
+use App\Models\GeoguesserRound;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -19,13 +20,14 @@ class BuildGeoguessrToday
      *     furthestDistance: int|null,
      *     fewestSteps: int|null,
      *     mostSteps: int|null,
+     *     overview: array{rounds: list<int>, players: list<array<string, mixed>>},
      *     revision: string
      * }
      */
     public function handle(): array
     {
         $results = GeoguesserChallenge::query()
-            ->with('geoguesser.user')
+            ->with(['geoguesser.user', 'rounds'])
             ->whereDate('attempted_at', today())
             ->orderByDesc('total_score')
             ->orderBy('updated_at')
@@ -35,6 +37,7 @@ class BuildGeoguessrToday
             'results' => $results,
             'ranks' => $this->ranker->ranks($results),
             ...$this->todayAwards($results),
+            'overview' => $this->overview($results),
             'revision' => $this->revision(),
         ];
     }
@@ -51,6 +54,54 @@ class BuildGeoguessrToday
             (int) ($row->aggregate_count ?? 0),
             $row->latest_updated_at ?? null,
         );
+    }
+
+    /**
+     * @param  Collection<int, GeoguesserChallenge>  $results
+     * @return array{rounds: list<int>, players: list<array<string, mixed>>}
+     */
+    private function overview(Collection $results): array
+    {
+        $roundNumbers = $results
+            ->flatMap(fn (GeoguesserChallenge $challenge): Collection => $challenge->rounds->pluck('round_number'))
+            ->filter()
+            ->map(fn ($number): int => (int) $number)
+            ->unique()
+            ->sort()
+            ->values();
+
+        if ($roundNumbers->isEmpty()) {
+            return [
+                'rounds' => [1, 2, 3, 4, 5],
+                'players' => [],
+            ];
+        }
+
+        return [
+            'rounds' => $roundNumbers->all(),
+            'players' => $results
+                ->filter(fn (GeoguesserChallenge $challenge): bool => $challenge->geoguesser !== null && $challenge->rounds->isNotEmpty())
+                ->map(function (GeoguesserChallenge $challenge) use ($roundNumbers): array {
+                    $byRound = $challenge->rounds->keyBy(
+                        fn (GeoguesserRound $round): int => (int) $round->round_number,
+                    );
+
+                    return [
+                        'id' => (int) $challenge->geoguesser_id,
+                        'label' => $challenge->geoguesser->displayName(),
+                        'color' => $challenge->geoguesser->boardColor(),
+                        'scores' => $roundNumbers
+                            ->map(function (int $number) use ($byRound): ?int {
+                                $score = $byRound->get($number)?->score;
+
+                                return $score === null ? null : (int) $score;
+                            })
+                            ->all(),
+                    ];
+                })
+                ->values()
+                ->all(),
+        ];
     }
 
     /**

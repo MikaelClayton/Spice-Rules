@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Geoguesser;
 use App\Models\GeoguesserChallenge;
+use App\Models\GeoguesserRound;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -65,5 +66,35 @@ class GeoguessrLiveTest extends TestCase
             ->assertOk()
             ->assertSee('data-poll-url="'.e(route('geoguessr.live')).'"', false)
             ->assertSee('data-live-region="today"', false);
+    }
+
+    public function test_live_today_includes_round_overview_scores(): void
+    {
+        $this->travelTo('2026-09-14 12:00:00');
+
+        $viewer = User::factory()->create();
+        $player = User::factory()->create(['name' => 'Alex']);
+        $challenge = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create(['user_id' => $player->id]),
+            'attempted_at' => now(),
+            'total_score' => 7000,
+        ]);
+
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $challenge->id,
+            'round_number' => 1,
+            'score' => 3000,
+        ]);
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $challenge->id,
+            'round_number' => 2,
+            'score' => 4000,
+        ]);
+
+        $this->actingAs($viewer)
+            ->getJson(route('geoguessr.live'))
+            ->assertOk()
+            ->assertJsonPath('todayOverview.rounds', [1, 2])
+            ->assertJsonPath('todayOverview.players.0.scores', [3000, 4000]);
     }
 }

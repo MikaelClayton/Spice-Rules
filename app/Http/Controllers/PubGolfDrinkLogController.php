@@ -15,7 +15,13 @@ class PubGolfDrinkLogController extends Controller
         LogPubGolfDrink $logPubGolfDrink,
     ): RedirectResponse {
         $drink = $request->listedDrink();
-        $logPubGolfDrink->handle($pubGolfCrawl, $request->user(), $drink);
+        $logPubGolfDrink->handle(
+            $pubGolfCrawl,
+            $request->user(),
+            $drink,
+            $request->latitude(),
+            $request->longitude(),
+        );
 
         return redirect()
             ->route('pub-golf.show', $pubGolfCrawl)

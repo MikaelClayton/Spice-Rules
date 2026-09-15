@@ -1,5 +1,6 @@
 import Chart from 'chart.js/auto';
 import { renderInsights } from './geoguessr-insights';
+import { bindTodayOverview } from './geoguessr-day-overview';
 
 const root = document.querySelector('[data-geoguessr-board]');
 const dataNode = document.querySelector('[data-geoguessr-data]');
@@ -43,6 +44,7 @@ if (root && dataNode) {
     bindTabs(root, draw);
     bindFilters(root, state, draw);
     bindRewards(root);
+    bindTodayOverview();
 
     if (root.querySelector('[data-tab="graphs"]')?.checked) {
         draw();

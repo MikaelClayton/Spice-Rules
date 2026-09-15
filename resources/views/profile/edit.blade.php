@@ -3,7 +3,11 @@
 @section('title', 'Profile — '.config('app.name'))
 
 @php
-    $tab = ($activeTab === 'geoguessr' || $errors->has('ncfa') || $errors->has('sync')) ? 'geoguessr' : 'account';
+    $tab = match (true) {
+        $errors->has('ncfa') || $errors->has('sync') => 'geoguessr',
+        $errors->has('allow_pub_golf_location') => 'pub-golf',
+        default => $activeTab,
+    };
 @endphp
 
 @section('content')
@@ -33,7 +37,7 @@
                     <h2 class="card-title">Your details</h2>
                     <p class="text-base-content/70">Update the name and email you use on Spice Rules.</p>
 
-                    @if ($errors->any() && ! $errors->has('ncfa'))
+                    @if ($errors->any() && ! $errors->has('ncfa') && ! $errors->has('sync') && ! $errors->has('allow_pub_golf_location'))
                         <div role="alert" class="alert alert-error">
                             <span>{{ $errors->first() }}</span>
                         </div>
@@ -390,6 +394,62 @@
                     </div>
                 </section>
             @endif
+        </div>
+
+        <input
+            type="radio"
+            name="profile_tabs"
+            class="tab grow"
+            aria-label="Pub Golf"
+            data-tab="pub-golf"
+            @checked($tab === 'pub-golf')
+        >
+        <div class="tab-content mt-4">
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Pub Golf</h2>
+                    <p class="text-base-content/70">How Spice Rules uses your phone while you log drinks.</p>
+
+                    @if ($errors->has('allow_pub_golf_location'))
+                        <div role="alert" class="alert alert-error">
+                            <span>{{ $errors->first('allow_pub_golf_location') }}</span>
+                        </div>
+                    @endif
+
+                    <form
+                        method="POST"
+                        action="{{ route('profile.pub-golf.update') }}"
+                        class="space-y-4"
+                        data-pub-golf-location
+                        data-save-url="{{ route('profile.pub-golf.update') }}"
+                    >
+                        @csrf
+                        @method('PATCH')
+
+                        <div class="flex w-full min-w-0 items-start gap-3">
+                            <input type="hidden" name="allow_pub_golf_location" value="0">
+                            <input
+                                id="allow_pub_golf_location"
+                                type="checkbox"
+                                name="allow_pub_golf_location"
+                                value="1"
+                                class="toggle toggle-primary mt-0.5 shrink-0"
+                                @checked(old('allow_pub_golf_location', $user->allow_pub_golf_location))
+                            >
+                            <label for="allow_pub_golf_location" class="min-w-0 flex-1 cursor-pointer">
+                                <span class="font-medium">Allow location</span>
+                                <span class="mt-0.5 block text-sm font-normal whitespace-normal text-base-content/70">
+                                    Turning this on asks your phone now. After that, a pin is only taken when you log a drink. If you refuse, this stays off so we do not ask again.
+                                </span>
+                            </label>
+                        </div>
+
+                        <p class="hidden text-sm" data-pub-golf-location-status></p>
+
+                        <button type="submit" class="btn btn-primary" data-pub-golf-location-save>Save</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 @endsection

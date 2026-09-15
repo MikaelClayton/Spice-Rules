@@ -38,6 +38,11 @@ class ProfileTest extends TestCase
             ->assertSee('mikael@example.com')
             ->assertSee('Board colour')
             ->assertSee('GeoGuessr')
+            ->assertSee('Pub Golf')
+            ->assertSee('Allow location')
+            ->assertSee('Turning this on asks your phone now.')
+            ->assertSee('data-pub-golf-location', false)
+            ->assertSee('data-save-url="'.e(route('profile.pub-golf.update')).'"', false)
             ->assertSee('_ncfa')
             ->assertSee('Active')
             ->assertSee('Test')
@@ -46,6 +51,61 @@ class ProfileTest extends TestCase
             ->assertDontSee('Sync scores')
             ->assertDontSee('Challenges by player')
             ->assertDontSee('Enable notifications');
+    }
+
+    public function test_guests_are_redirected_from_pub_golf_settings(): void
+    {
+        $this->patch(route('profile.pub-golf.update'), [
+            'allow_pub_golf_location' => '1',
+        ])->assertRedirect(route('login'));
+    }
+
+    public function test_guests_cannot_update_pub_golf_settings_over_json(): void
+    {
+        $this->patchJson(route('profile.pub-golf.update'), [
+            'allow_pub_golf_location' => true,
+        ])->assertUnauthorized();
+    }
+
+    public function test_users_can_allow_pub_golf_location(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patch(route('profile.pub-golf.update'), [
+                'allow_pub_golf_location' => '1',
+            ])
+            ->assertRedirect(route('profile.edit', ['tab' => 'pub-golf']))
+            ->assertSessionHas('status', 'Pub Golf settings were saved.');
+
+        $this->assertTrue($user->refresh()->allowsPubGolfLocation());
+    }
+
+    public function test_users_can_turn_off_pub_golf_location(): void
+    {
+        $user = User::factory()->sharingPubGolfLocation()->create();
+
+        $this->actingAs($user)
+            ->patch(route('profile.pub-golf.update'), [
+                'allow_pub_golf_location' => '0',
+            ])
+            ->assertRedirect(route('profile.edit', ['tab' => 'pub-golf']));
+
+        $this->assertFalse($user->refresh()->allowsPubGolfLocation());
+    }
+
+    public function test_refusing_location_over_json_turns_the_flag_off(): void
+    {
+        $user = User::factory()->sharingPubGolfLocation()->create();
+
+        $this->actingAs($user)
+            ->patchJson(route('profile.pub-golf.update'), [
+                'allow_pub_golf_location' => false,
+            ])
+            ->assertOk()
+            ->assertJson(['allow_pub_golf_location' => false]);
+
+        $this->assertFalse($user->refresh()->allowsPubGolfLocation());
     }
 
     public function test_users_can_update_their_details(): void

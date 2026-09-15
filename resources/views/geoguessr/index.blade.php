@@ -64,6 +64,8 @@
             <div data-live-region="today">
                 @include('geoguessr.today')
             </div>
+
+            @include('geoguessr.day-overview', ['source' => 'today'])
         </div>
 
         <input
@@ -250,6 +252,8 @@
                     </div>
                 </section>
 
+                @include('geoguessr.day-overview', ['source' => 'challenge'])
+
                 <section class="card bg-base-100 shadow-xl">
                     <div class="card-body p-4">
                         <h2 class="card-title text-base">Rounds</h2>
@@ -401,6 +405,7 @@
         <div class="toast toast-top toast-end z-[2000]" data-reward-toast></div>
     </div>
 
+    <script type="application/json" data-geoguessr-today-overview>@json($overview)</script>
     <script type="application/json" data-geoguessr-data>@json($board)</script>
     <script type="application/json" data-geoguessr-insights>@json($insights)</script>
     <script type="application/json" data-geoguessr-dailies>@json($dailies)</script>

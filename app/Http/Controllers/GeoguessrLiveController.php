@@ -25,6 +25,7 @@ class GeoguessrLiveController extends Controller
             'regions' => [
                 'today' => view('geoguessr.today', $today)->render(),
             ],
+            'todayOverview' => $today['overview'],
         ]);
     }
 }

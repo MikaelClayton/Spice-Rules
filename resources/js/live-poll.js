@@ -61,6 +61,7 @@ function bindLivePoll(root) {
             revision = data.revision;
             root.setAttribute('data-revision', revision);
             applyRegions(root, data.regions);
+            root.dispatchEvent(new CustomEvent('live-poll:updated', { detail: data, bubbles: true }));
         } catch {
             return;
         } finally {

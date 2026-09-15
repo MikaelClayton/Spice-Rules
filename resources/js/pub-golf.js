@@ -1,5 +1,8 @@
 import Chart from 'chart.js/auto';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { setButtonLoading } from './button-loading';
+import { bindMapFullscreen } from './geoguessr-map-fullscreen';
 
 bindDrinkPicker(document.querySelector('[data-pub-golf-board]'));
 bindDrinkConfirmations(document.querySelector('[data-pub-golf-board]'));
@@ -7,7 +10,120 @@ bindAddDrinkPhoto(document.querySelector('[data-add-drink]'));
 bindCopyButtons();
 bindDuration(document.querySelector('[data-pub-golf-board]'));
 bindPubGolfChat(document.querySelector('[data-pub-golf-chat]'));
+bindPubGolfLocationSettings(document.querySelector('[data-pub-golf-location]'));
+bindPubGolfMaps(document.querySelectorAll('[data-pub-golf-map-wrap]'));
 renderRecap(document.querySelector('[data-pub-golf-recap]'));
+
+function bindPubGolfMaps(wraps) {
+    wraps.forEach((wrap) => {
+        if (!(wrap instanceof HTMLElement)) {
+            return;
+        }
+
+        const mount = wrap.querySelector('[data-pub-golf-map]');
+        const dataNode = wrap.querySelector('[data-pub-golf-map-pins]');
+
+        if (!(mount instanceof HTMLElement) || !dataNode) {
+            return;
+        }
+
+        let pins = [];
+
+        try {
+            pins = JSON.parse(dataNode.textContent || '[]');
+        } catch {
+            return;
+        }
+
+        if (!Array.isArray(pins) || pins.length === 0) {
+            return;
+        }
+
+        const map = L.map(mount, { scrollWheelZoom: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap',
+            maxZoom: 18,
+        }).addTo(map);
+
+        const group = L.layerGroup();
+        const bounds = [];
+        const byUser = new Map();
+
+        pins.forEach((pin) => {
+            const lat = Number(pin.lat);
+            const lng = Number(pin.lng);
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                return;
+            }
+
+            const point = [lat, lng];
+            const color = /^#[0-9A-Fa-f]{6}$/.test(pin.color) ? pin.color : '#D82820';
+            const userId = String(pin.user_id ?? 'me');
+
+            bounds.push(point);
+
+            if (!byUser.has(userId)) {
+                byUser.set(userId, { color, points: [] });
+            }
+
+            byUser.get(userId).points.push(point);
+            pubGolfMarker(point, color, pin.initials, pubGolfPinPopup(pin)).addTo(group);
+        });
+
+        byUser.forEach((path) => {
+            if (path.points.length > 1) {
+                L.polyline(path.points, {
+                    color: path.color,
+                    weight: 3,
+                    opacity: 0.75,
+                }).addTo(group);
+            }
+        });
+
+        group.addTo(map);
+        bindMapFullscreen(wrap, wrap.querySelector('[data-map-fullscreen]'), () => map);
+
+        requestAnimationFrame(() => {
+            map.invalidateSize();
+
+            if (bounds.length === 1) {
+                map.setView(bounds[0], 16);
+            } else if (bounds.length) {
+                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 16 });
+            }
+        });
+    });
+}
+
+function pubGolfMarker(latlng, color, label, title) {
+    const text = String(label || '?');
+    const wide = text.length > 1;
+    const pin = L.marker(latlng, {
+        title: title || text,
+        icon: L.divIcon({
+            className: 'geoguessr-pin',
+            html: `<span style="background:${color}">${escapeHtml(text)}</span>`,
+            iconSize: wide ? [32, 28] : [28, 28],
+            iconAnchor: wide ? [16, 14] : [14, 14],
+        }),
+    });
+
+    return title ? pin.bindPopup(title) : pin;
+}
+
+function pubGolfPinPopup(pin) {
+    return [
+        pin.name,
+        [pin.emoji, pin.label].filter(Boolean).join(' '),
+        pin.location,
+        pin.crawl,
+        pin.time,
+    ]
+        .filter((part) => typeof part === 'string' && part !== '')
+        .map((part) => escapeHtml(part))
+        .join(' · ');
+}
 
 function bindDrinkPicker(root) {
     if (!(root instanceof HTMLElement)) {
@@ -67,6 +183,77 @@ function bindDrinkConfirmations(root) {
 
     const logModal = document.getElementById('pub-golf-log');
     const removeModal = document.getElementById('pub-golf-remove');
+    const logForm = logModal?.querySelector('[data-log-form]');
+    const latitudeNode = logForm?.querySelector('[data-log-latitude]');
+    const longitudeNode = logForm?.querySelector('[data-log-longitude]');
+    const denyUrl = root.getAttribute('data-location-deny-url') || '';
+    let allowLocation = root.getAttribute('data-allow-location') === '1';
+    let locationPromise = Promise.resolve();
+
+    const fillCoordinates = (latitude, longitude) => {
+        if (latitudeNode instanceof HTMLInputElement) {
+            latitudeNode.value = latitude;
+        }
+
+        if (longitudeNode instanceof HTMLInputElement) {
+            longitudeNode.value = longitude;
+        }
+    };
+
+    const rememberLocationDenied = () => {
+        allowLocation = false;
+        root.setAttribute('data-allow-location', '0');
+        fillCoordinates('', '');
+
+        if (denyUrl === '') {
+            return;
+        }
+
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        fetch(denyUrl, {
+            method: 'PATCH',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ allow_pub_golf_location: false }),
+        }).catch(() => {});
+    };
+
+    const captureLocation = () => {
+        fillCoordinates('', '');
+
+        if (logForm instanceof HTMLFormElement) {
+            logForm.dataset.locationReady = '';
+        }
+
+        if (!allowLocation || !navigator.geolocation) {
+            locationPromise = Promise.resolve();
+
+            return;
+        }
+
+        locationPromise = new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    fillCoordinates(String(position.coords.latitude), String(position.coords.longitude));
+                    resolve();
+                },
+                (error) => {
+                    if (error?.code === 1) {
+                        rememberLocationDenied();
+                    }
+
+                    resolve();
+                },
+                { enableHighAccuracy: false, timeout: 4000, maximumAge: 0 },
+            );
+        });
+    };
 
     root.querySelectorAll('[data-confirm-log]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -94,9 +281,32 @@ function bindDrinkConfirmations(root) {
                 photoNode.classList.toggle('hidden', photo === '');
             }
 
+            captureLocation();
             logModal.showModal();
         });
     });
+
+    if (logForm instanceof HTMLFormElement) {
+        logForm.addEventListener('submit', async (event) => {
+            if (logForm.dataset.locationReady === '1') {
+                return;
+            }
+
+            event.preventDefault();
+            const button = logForm.querySelector('button[type="submit"]');
+            setButtonLoading(button, true);
+
+            await Promise.race([
+                locationPromise,
+                new Promise((resolve) => {
+                    window.setTimeout(resolve, 2000);
+                }),
+            ]);
+
+            logForm.dataset.locationReady = '1';
+            logForm.submit();
+        });
+    }
 
     root.querySelectorAll('[data-confirm-remove]').forEach((button) => {
         button.addEventListener('click', (event) => {
@@ -121,6 +331,130 @@ function bindDrinkConfirmations(root) {
 
             removeModal.showModal();
         });
+    });
+}
+
+function bindPubGolfLocationSettings(root) {
+    if (!(root instanceof HTMLElement)) {
+        return;
+    }
+
+    const toggle = root.querySelector('#allow_pub_golf_location');
+    const status = root.querySelector('[data-pub-golf-location-status]');
+    const save = root.querySelector('[data-pub-golf-location-save]');
+    const url = root.getAttribute('data-save-url') || '';
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    if (!(toggle instanceof HTMLInputElement) || url === '') {
+        return;
+    }
+
+    save?.classList.add('hidden');
+
+    const setStatus = (message, isError = false) => {
+        if (!(status instanceof HTMLElement)) {
+            return;
+        }
+
+        status.textContent = message;
+        status.classList.toggle('hidden', message === '');
+        status.classList.toggle('text-error', isError);
+        status.classList.toggle('text-success', !isError && message !== '');
+    };
+
+    const saveFlag = async (allowed) => {
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ allow_pub_golf_location: allowed }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Could not save location settings.');
+        }
+    };
+
+    const permissionState = async () => {
+        if (!navigator.permissions?.query) {
+            return 'prompt';
+        }
+
+        try {
+            const result = await navigator.permissions.query({ name: 'geolocation' });
+
+            return result.state;
+        } catch {
+            return 'prompt';
+        }
+    };
+
+    const askForPermission = () => new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('This phone cannot share location.'));
+
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            () => resolve(),
+            (error) => reject(error),
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: Infinity },
+        );
+    });
+
+    toggle.addEventListener('change', async () => {
+        if (!toggle.checked) {
+            try {
+                await saveFlag(false);
+                setStatus('Location is off. We will not ask your phone.');
+            } catch {
+                toggle.checked = true;
+                setStatus('Could not save location settings.', true);
+            }
+
+            return;
+        }
+
+        toggle.disabled = true;
+        setStatus('Asking your phone…');
+
+        try {
+            const state = await permissionState();
+
+            if (state === 'denied') {
+                const denied = new Error('denied');
+                denied.code = 1;
+                throw denied;
+            }
+
+            if (state !== 'granted') {
+                await askForPermission();
+            }
+
+            await saveFlag(true);
+            setStatus('Location is on. A pin is only taken when you log a drink.');
+        } catch (error) {
+            toggle.checked = false;
+
+            if (error?.code === 1) {
+                try {
+                    await saveFlag(false);
+                } catch {
+                    // The toggle is already off.
+                }
+                setStatus('Location stays off because the phone prompt was refused. We will not ask again.', true);
+            } else {
+                setStatus(error?.message || 'Could not get location permission. Try again.', true);
+            }
+        } finally {
+            toggle.disabled = false;
+        }
     });
 }
 

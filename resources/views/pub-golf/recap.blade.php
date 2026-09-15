@@ -75,6 +75,22 @@
         </div>
     </div>
 
+    @if ($recap['stops'] !== [])
+        <div class="mb-5">
+            @include('pub-golf.stops', [
+                'stops' => $recap['stops'],
+                'heading' => 'Your stops',
+                'intro' => 'The places you logged a drink, in order.',
+            ])
+        </div>
+    @endif
+
+    @include('pub-golf.map', [
+        'pins' => $recap['pins'],
+        'heading' => 'The night',
+        'intro' => 'Drinks logged with a location. Each pin is a drink, coloured by player.',
+    ])
+
     <div class="grid gap-4 lg:grid-cols-2 mb-5" data-pub-golf-recap>
         <section class="card bg-base-100 shadow-xl">
             <div class="card-body p-4 sm:p-5">
@@ -123,7 +139,7 @@
                         <ol class="mt-2 space-y-1.5 text-sm">
                             @foreach ($recap['timeline'] as $item)
                                 <li class="flex justify-between gap-3">
-                                    <span>{{ $item['emoji'] }} {{ $item['label'] }}</span>
+                                    <span>{{ $item['emoji'] }} {{ $item['label'] }}@if ($item['location']) at {{ $item['location'] }}@endif</span>
                                     <span class="tabular-nums text-base-content/50">{{ $item['time'] }}</span>
                                 </li>
                             @endforeach

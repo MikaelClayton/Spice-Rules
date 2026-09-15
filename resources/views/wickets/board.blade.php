@@ -1,3 +1,4 @@
+<div class="flex flex-col gap-4">
 @forelse ($standings as $row)
     <details data-player="{{ $row['user']->id }}" class="card group bg-base-100 shadow-md {{ $row['user']->id === Auth::id() ? 'ring-2 ring-primary' : '' }}">
         <summary class="card-body cursor-pointer list-none p-3.5 sm:p-4 [&::-webkit-details-marker]:hidden">
@@ -122,3 +123,4 @@
         @endforelse
     </div>
 </section>
+</div>

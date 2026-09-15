@@ -16,6 +16,8 @@ class BuildPubGolfRecap
 {
     public function __construct(
         private DescribePubGolfPace $describePubGolfPace,
+        private DescribePubGolfMapPins $describePubGolfMapPins,
+        private DescribePubGolfStops $describePubGolfStops,
         private ResolveDisplayTimezone $resolveDisplayTimezone,
     ) {}
 
@@ -33,7 +35,9 @@ class BuildPubGolfRecap
      *     by_drink: list<array{drink: string, label: string, emoji: string, count: int}>,
      *     by_category: list<array{category: string, label: string, emoji: string, count: int}>,
      *     hourly: list<array{label: string, count: int}>,
-     *     timeline: list<array{time: string, label: string, emoji: string}>,
+     *     stops: list<array{location: string, drink_count: int, drink_label: string, when: string}>,
+     *     pins: list<array{lat: float, lng: float, name: string, color: string, initials: string, label: string, emoji: string, location: ?string, time: string, crawl: ?string, is_you: bool, user_id: int}>,
+     *     timeline: list<array{time: string, label: string, emoji: string, location: ?string}>,
      *     standings: list<array{user_id: int, name: string, color: string, alcoholic: int, still_in: bool, is_you: bool}>,
      *     charts: array{hourly: list<array{label: string, count: int}>, categories: list<array{label: string, count: int}>, cumulative: list<array{label: string, count: int}>}
      * }
@@ -62,28 +66,33 @@ class BuildPubGolfRecap
         $hourly = $this->hourly($logs, $participant->joined_at, $endedAt);
         $byCategory = $this->byCategory($logs);
         $standings = $this->standings($crawl, $viewer);
+        $timezone = $this->resolveDisplayTimezone->name();
+        $showLocations = $this->describePubGolfStops->crawlSharesLocations($crawl);
 
         return [
             'drink_count' => $logs->count(),
             'alcoholic_count' => $logs->count(),
             'units' => $units,
             'pace' => $pace,
-            'joined_at' => $participant->joined_at->copy()->timezone($this->resolveDisplayTimezone->name())->format('g:i A'),
-            'left_at' => $endedAt->copy()->timezone($this->resolveDisplayTimezone->name())->format('g:i A'),
+            'joined_at' => $participant->joined_at->copy()->timezone($timezone)->format('g:i A'),
+            'left_at' => $endedAt->copy()->timezone($timezone)->format('g:i A'),
             'group_still_going' => $crawl->isOpen(),
             'rank' => $this->rank($standings, $viewer),
             'field_size' => count($standings),
             'by_drink' => $this->byDrink($logs),
             'by_category' => $byCategory,
             'hourly' => $hourly,
+            'stops' => $showLocations ? $this->describePubGolfStops->handle($logs, $timezone) : [],
+            'pins' => $this->describePubGolfMapPins->fromLogs($crawl->drinkLogs, $viewer, $timezone, $showLocations),
             'timeline' => $logs
-                ->map(function (PubGolfDrinkLog $log): array {
+                ->map(function (PubGolfDrinkLog $log) use ($timezone, $showLocations): array {
                     $listed = $log->listed();
 
                     return [
-                        'time' => $log->created_at?->copy()->timezone($this->resolveDisplayTimezone->name())->format('H:i') ?? '',
+                        'time' => $log->created_at?->copy()->timezone($timezone)->format('H:i') ?? '',
                         'label' => $listed->label,
                         'emoji' => $listed->category->emoji(),
+                        'location' => $showLocations && is_string($log->location) && $log->location !== '' ? $log->location : null,
                     ];
                 })
                 ->all(),

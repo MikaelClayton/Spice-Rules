@@ -3,7 +3,13 @@
 @section('title', $crawl->name.' — Pub Golf — '.config('app.name'))
 
 @section('content')
-    <div class="min-w-0 pb-24" data-pub-golf-board data-joined-at="{{ $board['joined_at_iso'] }}">
+    <div
+        class="min-w-0 pb-24"
+        data-pub-golf-board
+        data-joined-at="{{ $board['joined_at_iso'] }}"
+        data-allow-location="{{ Auth::user()->allowsPubGolfLocation() ? '1' : '0' }}"
+        data-location-deny-url="{{ route('profile.pub-golf.update') }}"
+    >
         <div class="mb-4 flex items-center justify-between gap-2">
             <a href="{{ route('pub-golf.index') }}" class="btn btn-ghost btn-sm -ml-2 shrink-0">← Back</a>
             <button type="button" class="btn btn-ghost btn-sm min-w-0 font-mono tracking-widest" data-copy="{{ $crawl->join_code }}">
@@ -266,6 +272,12 @@
                     </div>
                 </section>
 
+                @include('pub-golf.stops', [
+                    'stops' => $board['stops'],
+                    'heading' => 'Stops',
+                    'intro' => 'Where drinks have been logged tonight.',
+                ])
+
                 <section class="card bg-base-100 shadow-xl">
                     <div class="card-body p-4 sm:p-5">
                         <h2 class="card-title">Tonight</h2>
@@ -278,6 +290,9 @@
                                         <span>
                                             <span class="font-medium">{{ $item['is_you'] ? 'You' : $item['name'] }}</span>
                                             logged {{ $item['emoji'] }} {{ $item['label'] }}
+                                            @if ($item['location'])
+                                                at {{ $item['location'] }}
+                                            @endif
                                         </span>
                                         <span class="shrink-0 tabular-nums text-base-content/50">{{ $item['created_at'] }}</span>
                                     </li>
@@ -336,9 +351,11 @@
                 <form method="dialog">
                     <button class="btn btn-ghost">Cancel</button>
                 </form>
-                <form method="POST" action="{{ route('pub-golf.drinks.store', $crawl) }}">
+                <form method="POST" action="{{ route('pub-golf.drinks.store', $crawl) }}" data-log-form>
                     @csrf
                     <input type="hidden" name="drink" value="" data-confirm-log-value>
+                    <input type="hidden" name="latitude" value="" data-log-latitude>
+                    <input type="hidden" name="longitude" value="" data-log-longitude>
                     <button type="submit" class="btn btn-primary">Log it</button>
                 </form>
             </div>

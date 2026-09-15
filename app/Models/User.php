@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'color'])]
+#[Fillable(['name', 'email', 'password', 'color', 'allow_pub_golf_location'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -31,6 +31,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'allow_pub_golf_location' => 'boolean',
         ];
     }
 
@@ -106,6 +107,11 @@ class User extends Authenticatable
     public function pubGolfDrinkLogs(): HasMany
     {
         return $this->hasMany(PubGolfDrinkLog::class);
+    }
+
+    public function allowsPubGolfLocation(): bool
+    {
+        return $this->allow_pub_golf_location === true;
     }
 
     public function boardColor(): string

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\PubGolfDrinkCategory;
 use App\Models\PubGolfCrawl;
 use App\Models\PubGolfCustomDrink;
+use App\Models\PubGolfDrinkLog;
 use App\Models\PubGolfParticipant;
 use App\Models\User;
 use App\Services\Timezone\ResolveDisplayTimezone;
@@ -34,7 +35,8 @@ class PubGolfCrawlTest extends TestCase
             ->assertSee('Pub Golf')
             ->assertSee('Start a crawl')
             ->assertSee('Join a crawl')
-            ->assertSee('Recaps land here after you call it');
+            ->assertSee('Recaps land here after you call it')
+            ->assertDontSee('data-pub-golf-map', false);
     }
 
     public function test_users_can_start_a_crawl_and_become_the_first_player(): void
@@ -448,7 +450,35 @@ class PubGolfCrawlTest extends TestCase
             ->get(route('pub-golf.index'))
             ->assertOk()
             ->assertSee('Long Street')
-            ->assertSee('Wrapped');
+            ->assertSee('Wrapped')
+            ->assertDontSee('data-pub-golf-map', false);
+    }
+
+    public function test_the_home_page_does_not_map_past_nights(): void
+    {
+        $user = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Long Street',
+        ]);
+        $crawl->participants()->where('user_id', $user->id)->update(['left_at' => now()]);
+        $crawl->update(['ended_at' => now()]);
+        $drink = PubGolfCustomDrink::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Castle Lite',
+        ]);
+        PubGolfDrinkLog::factory()->located()->create([
+            'pub_golf_crawl_id' => $crawl->id,
+            'user_id' => $user->id,
+            'drink_id' => $drink->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('pub-golf.index'))
+            ->assertOk()
+            ->assertSee('Long Street')
+            ->assertDontSee('Your trail')
+            ->assertDontSee('data-pub-golf-map', false);
     }
 
     private function openCrawl(User $host, User $friend): PubGolfCrawl

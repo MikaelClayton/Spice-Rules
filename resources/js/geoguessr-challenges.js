@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { bindMapFullscreen } from './geoguessr-map-fullscreen';
+import { bindTabResize, overviewFromDaily, renderDayOverview } from './geoguessr-day-overview';
 
 const root = document.querySelector('[data-geoguessr-challenges]');
 const dataNode = document.querySelector('[data-geoguessr-dailies]');
@@ -8,10 +9,11 @@ const dataNode = document.querySelector('[data-geoguessr-dailies]');
 if (root && dataNode) {
     const dailies = JSON.parse(dataNode.textContent || '[]');
     const palette = ['#2A9D8F', '#F4A261', '#E85D04', '#283030', '#9B2226', '#FEC523'];
+    const dayCharts = {};
     let map = null;
     let layer = null;
 
-    const show = (token) => renderChallenge(root, dailies, token, palette, () => {
+    const show = (token) => renderChallenge(root, dailies, token, palette, dayCharts, () => {
         if (!map) {
             map = L.map(root.querySelector('[data-challenge-map]'), {
                 scrollWheelZoom: false,
@@ -47,6 +49,8 @@ if (root && dataNode) {
             return map;
         },
     );
+
+    bindTabResize(root.querySelector('[data-day-overview="challenge"]'), 'challenges', dayCharts);
 
     if (root.closest('[data-geoguessr-board]')?.querySelector('[data-tab="challenges"]')?.checked && initial) {
         requestAnimationFrame(() => show(initial));
@@ -117,7 +121,7 @@ function notifyCheeky(rootEl) {
     window.setTimeout(() => alert.remove(), 4000);
 }
 
-function renderChallenge(rootEl, dailies, token, palette, mapOf, setLayer) {
+function renderChallenge(rootEl, dailies, token, palette, dayCharts, mapOf, setLayer) {
     const daily = dailies.find((item) => item.token === token);
 
     if (!daily) {
@@ -148,6 +152,7 @@ function renderChallenge(rootEl, dailies, token, palette, mapOf, setLayer) {
     }
 
     renderSummary(rootEl, daily);
+    renderDayOverview(rootEl.querySelector('[data-day-overview="challenge"]'), overviewFromDaily(daily), dayCharts);
     renderRoundTable(rootEl, daily);
     renderMap(rootEl, daily, palette, mapOf, setLayer);
 }

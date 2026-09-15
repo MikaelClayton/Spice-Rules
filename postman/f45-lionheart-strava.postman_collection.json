@@ -1,0 +1,224 @@
+{
+  "info": {
+    "_postman_id": "f45-lionheart-strava-importer",
+    "name": "F45 Lionheart → Strava",
+    "description": "HTTP calls used by https://github.com/JamesIves/f45-lionheart-strava-importer\n\nFlow:\n1. Lionheart session (workout JSON, no auth)\n2. Lionheart profile summary (optional, used in Strava description)\n3. Strava refresh token → access token\n4. Upload a TCX file to Strava\n\nClass time in the session URL is HHMM with no colon (09:30 → 0930), matching the importer.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "F45 Lionheart",
+      "item": [
+        {
+          "name": "Get class session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.lionheart.f45.com/v3/sessions/{{f45_class_date}}_{{f45_class_time}}:studio:{{f45_studio_code}}:serial:{{f45_lionheart_serial}}?user_id={{f45_user_id}}",
+              "protocol": "https",
+              "host": ["api", "lionheart", "f45", "com"],
+              "path": [
+                "v3",
+                "sessions",
+                "{{f45_class_date}}_{{f45_class_time}}:studio:{{f45_studio_code}}:serial:{{f45_lionheart_serial}}"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{f45_user_id}}"
+                }
+              ]
+            },
+            "description": "Undocumented public Lionheart session endpoint.\n\nPath shape:\n`/v3/sessions/{YYYY-MM-DD}_{HHMM}:studio:{studioCode}:serial:{serial}?user_id={userId}`\n\nExample: class 09:30 on 2025-03-12 at studio `7bpf` becomes\n`2025-03-12_0930:studio:7bpf:serial:YOUR_SERIAL`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get profile session summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.lionheart.f45.com/v3/profile/sessions/summary?user_id={{f45_user_id}}",
+              "protocol": "https",
+              "host": ["api", "lionheart", "f45", "com"],
+              "path": ["v3", "profile", "sessions", "summary"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{f45_user_id}}"
+                }
+              ]
+            },
+            "description": "All-time / week / month session stats. The importer uses averagePoints, maxPoints, and sessionCount in the Strava activity description. Optional if you only want the workout itself."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Strava",
+      "item": [
+        {
+          "name": "OAuth authorize (open in browser)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://www.strava.com/oauth/authorize?client_id={{strava_client_id}}&redirect_uri={{strava_redirect_uri}}&response_type=code&approval_prompt=force&scope=activity:write,activity:read",
+              "protocol": "https",
+              "host": ["www", "strava", "com"],
+              "path": ["oauth", "authorize"],
+              "query": [
+                {
+                  "key": "client_id",
+                  "value": "{{strava_client_id}}"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "{{strava_redirect_uri}}"
+                },
+                {
+                  "key": "response_type",
+                  "value": "code"
+                },
+                {
+                  "key": "approval_prompt",
+                  "value": "force"
+                },
+                {
+                  "key": "scope",
+                  "value": "activity:write,activity:read"
+                }
+              ]
+            },
+            "description": "One-time setup, not used by the importer on each run.\n\n1. Create an API app at https://www.strava.com/settings/api\n2. Set Authorization Callback Domain (localhost is fine)\n3. Open this URL in a browser, authorize, copy `code` from the redirect\n4. Run **Exchange auth code for tokens**"
+          },
+          "response": []
+        },
+        {
+          "name": "Exchange auth code for tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{strava_client_id}}\",\n  \"client_secret\": \"{{strava_client_secret}}\",\n  \"code\": \"PASTE_CODE_FROM_REDIRECT\",\n  \"grant_type\": \"authorization_code\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://www.strava.com/api/v3/oauth/token",
+              "protocol": "https",
+              "host": ["www", "strava", "com"],
+              "path": ["api", "v3", "oauth", "token"]
+            },
+            "description": "Swap the one-time `code` for `access_token` and `refresh_token`. Save `refresh_token` into the environment — that is what the importer stores."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh access token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "  pm.environment.set('strava_access_token', json.access_token);",
+                  "}",
+                  "if (json.refresh_token) {",
+                  "  pm.environment.set('strava_refresh_token', json.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"refresh_token\",\n  \"refresh_token\": \"{{strava_refresh_token}}\",\n  \"client_id\": \"{{strava_client_id}}\",\n  \"client_secret\": \"{{strava_client_secret}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://www.strava.com/api/v3/oauth/token",
+              "protocol": "https",
+              "host": ["www", "strava", "com"],
+              "path": ["api", "v3", "oauth", "token"]
+            },
+            "description": "This is the Strava call the importer makes every run. On success, tests save `access_token` (and a rotated `refresh_token` if Strava returns one) into the environment."
+          },
+          "response": []
+        },
+        {
+          "name": "Upload TCX workout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{strava_access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a .tcx file. The importer builds this from Lionheart graph/summary data."
+                },
+                {
+                  "key": "name",
+                  "value": "Studio Name - Workout Name",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "🥇 Current Class: 0\n🦁 Sessions: 0",
+                  "type": "text"
+                },
+                {
+                  "key": "data_type",
+                  "value": "tcx",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "https://www.strava.com/api/v3/uploads",
+              "protocol": "https",
+              "host": ["www", "strava", "com"],
+              "path": ["api", "v3", "uploads"]
+            },
+            "description": "Multipart upload — not JSON. Run **Refresh access token** first.\n\nIn Postman, choose a local `.tcx` file for `file`. The importer names activities `{studio.name} - {workout.name}`."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

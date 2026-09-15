@@ -20,6 +20,20 @@ class StorePubGolfDrinkLogRequest extends FormRequest
             && $crawl->hasParticipant($this->user());
     }
 
+    public function latitude(): ?float
+    {
+        $latitude = $this->validated('latitude');
+
+        return is_numeric($latitude) ? (float) $latitude : null;
+    }
+
+    public function longitude(): ?float
+    {
+        $longitude = $this->validated('longitude');
+
+        return is_numeric($longitude) ? (float) $longitude : null;
+    }
+
     protected function prepareForValidation(): void
     {
         $drinkId = PubGolfListedDrink::customId((string) $this->input('drink'));
@@ -27,6 +41,13 @@ class StorePubGolfDrinkLogRequest extends FormRequest
         if ($drinkId !== null) {
             $this->merge(['drink' => $drinkId]);
         }
+
+        [$latitude, $longitude] = $this->normalizedCoordinates();
+
+        $this->merge([
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ]);
     }
 
     /**
@@ -36,6 +57,8 @@ class StorePubGolfDrinkLogRequest extends FormRequest
     {
         return [
             'drink' => ['required', 'integer', Rule::exists('pub_golf_custom_drinks', 'id')],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 
@@ -85,5 +108,27 @@ class StorePubGolfDrinkLogRequest extends FormRequest
         }
 
         return $listed;
+    }
+
+    /**
+     * @return array{0: ?float, 1: ?float}
+     */
+    private function normalizedCoordinates(): array
+    {
+        $latitude = $this->input('latitude');
+        $longitude = $this->input('longitude');
+
+        if (! is_numeric($latitude) || ! is_numeric($longitude)) {
+            return [null, null];
+        }
+
+        $latitude = (float) $latitude;
+        $longitude = (float) $longitude;
+
+        if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+            return [null, null];
+        }
+
+        return [$latitude, $longitude];
     }
 }

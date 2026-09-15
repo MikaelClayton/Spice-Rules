@@ -6,6 +6,7 @@ use App\Http\Requests\BrowseGeoguessrChallengesRequest;
 use App\Http\Requests\ShareGeoguessrChallengeAsTeamRequest;
 use App\Http\Requests\UpdateGeoguessrSettingsRequest;
 use App\Http\Requests\UpdateProfileRequest;
+use App\Http\Requests\UpdatePubGolfSettingsRequest;
 use App\Models\Geoguesser;
 use App\Models\GeoguesserChallenge;
 use App\Services\Geoguessr\GeoguessrClient;
@@ -36,7 +37,7 @@ class ProfileController extends Controller
         return view('profile.edit', [
             'user' => $user,
             'geoguesser' => $user->geoguesser,
-            'activeTab' => request()->string('tab')->toString() === 'geoguessr' ? 'geoguessr' : 'account',
+            'activeTab' => $this->activeTab(),
             'canBrowseChallenges' => $canBrowseChallenges,
             'challengePlayers' => $canBrowseChallenges ? $this->challengePlayers() : [],
             'challengeGrid' => $challengePage['challenges'],
@@ -66,6 +67,23 @@ class ProfileController extends Controller
         return redirect()
             ->route('profile.edit')
             ->with('status', 'Your details were saved.');
+    }
+
+    public function updatePubGolf(UpdatePubGolfSettingsRequest $request): RedirectResponse|JsonResponse
+    {
+        $user = $request->user();
+        $user->allow_pub_golf_location = $request->boolean('allow_pub_golf_location');
+        $user->save();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'allow_pub_golf_location' => $user->allowsPubGolfLocation(),
+            ]);
+        }
+
+        return redirect()
+            ->route('profile.edit', ['tab' => 'pub-golf'])
+            ->with('status', 'Pub Golf settings were saved.');
     }
 
     public function updateGeoguessr(UpdateGeoguessrSettingsRequest $request, GeoguessrClient $client): RedirectResponse
@@ -221,6 +239,13 @@ class ProfileController extends Controller
             'isDoneAsTeam' => true,
             'geoguesserIds' => $targets->pluck('id')->values()->all(),
         ]);
+    }
+
+    private function activeTab(): string
+    {
+        $tab = request()->string('tab')->toString();
+
+        return in_array($tab, ['geoguessr', 'pub-golf'], true) ? $tab : 'account';
     }
 
     /**

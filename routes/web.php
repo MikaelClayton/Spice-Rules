@@ -31,7 +31,7 @@ use App\Http\Middleware\EnsurePubGolfCrawlParticipant;
 use App\Http\Middleware\EnsureWicketGroupMember;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::view('/', 'welcome')->middleware('guest')->name('home');
 Route::get('/firebase-messaging-sw.js', FirebaseMessagingServiceWorkerController::class)
     ->name('push.service-worker');
 
@@ -91,6 +91,7 @@ Route::middleware('auth')->group(function () {
     });
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('/profile/pub-golf', [ProfileController::class, 'updatePubGolf'])->name('profile.pub-golf.update');
     Route::post('/profile/geoguessr', [ProfileController::class, 'updateGeoguessr'])->name('profile.geoguessr.update');
     Route::post('/profile/geoguessr/sync', [ProfileController::class, 'syncGeoguessr'])->name('profile.geoguessr.sync');
     Route::get('/profile/geoguessr/challenges', [ProfileController::class, 'geoguessrChallenges'])->name('profile.geoguessr.challenges');

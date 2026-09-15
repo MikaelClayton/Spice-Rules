@@ -13,6 +13,7 @@ class BuildPubGolfBoard
 {
     public function __construct(
         private DescribePubGolfPace $describePubGolfPace,
+        private DescribePubGolfStops $describePubGolfStops,
         private ResolveDisplayTimezone $resolveDisplayTimezone,
     ) {}
 
@@ -28,7 +29,8 @@ class BuildPubGolfBoard
      *     active_count: int,
      *     left_count: int,
      *     standings: list<array{user_id: int, name: string, color: string, alcoholic: int, still_in: bool, is_you: bool}>,
-     *     activity: list<array{id: int, name: string, drink: string, label: string, emoji: string, is_you: bool, created_at: string}>
+     *     stops: list<array{location: string, drink_count: int, drink_label: string, when: string}>,
+     *     activity: list<array{id: int, name: string, drink: string, label: string, emoji: string, location: ?string, is_you: bool, created_at: string}>
      * }
      */
     public function handle(PubGolfCrawl $crawl, User $viewer): array
@@ -44,6 +46,8 @@ class BuildPubGolfBoard
         $mine = $logs->where('user_id', $viewer->id)->values();
         $duration = $participant?->durationSeconds() ?? 0;
         $last = $mine->last();
+        $timezone = $this->resolveDisplayTimezone->name();
+        $showLocations = $this->describePubGolfStops->crawlSharesLocations($crawl);
 
         return [
             'my_alcoholic' => $mine->count(),
@@ -56,7 +60,8 @@ class BuildPubGolfBoard
             'active_count' => $crawl->participants->filter(fn (PubGolfParticipant $row): bool => $row->isActive())->count(),
             'left_count' => $crawl->participants->filter(fn (PubGolfParticipant $row): bool => ! $row->isActive())->count(),
             'standings' => $this->standings($crawl, $logs, $viewer),
-            'activity' => $this->activity($logs->reverse()->take(20)->values(), $viewer),
+            'stops' => $showLocations ? $this->describePubGolfStops->handle($logs, $timezone) : [],
+            'activity' => $this->activity($logs->reverse()->take(20)->values(), $viewer, $showLocations),
         ];
     }
 
@@ -119,12 +124,12 @@ class BuildPubGolfBoard
 
     /**
      * @param  Collection<int, PubGolfDrinkLog>  $logs
-     * @return list<array{id: int, name: string, drink: string, label: string, emoji: string, is_you: bool, created_at: string}>
+     * @return list<array{id: int, name: string, drink: string, label: string, emoji: string, location: ?string, is_you: bool, created_at: string}>
      */
-    private function activity(Collection $logs, User $viewer): array
+    private function activity(Collection $logs, User $viewer, bool $showLocations): array
     {
         return $logs
-            ->map(function (PubGolfDrinkLog $log) use ($viewer): array {
+            ->map(function (PubGolfDrinkLog $log) use ($viewer, $showLocations): array {
                 $listed = $log->listed();
 
                 return [
@@ -133,6 +138,7 @@ class BuildPubGolfBoard
                     'drink' => $listed->key,
                     'label' => $listed->label,
                     'emoji' => $listed->category->emoji(),
+                    'location' => $showLocations && is_string($log->location) && $log->location !== '' ? $log->location : null,
                     'is_you' => $log->user_id === $viewer->id,
                     'created_at' => $log->created_at?->copy()->timezone($this->resolveDisplayTimezone->name())->format('H:i') ?? '',
                 ];

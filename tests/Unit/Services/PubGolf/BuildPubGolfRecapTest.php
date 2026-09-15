@@ -78,5 +78,6 @@ class BuildPubGolfRecapTest extends TestCase
         $this->assertSame(2, $recap['charts']['cumulative'][2]['count']);
         $this->assertSame('Beer', $recap['by_category'][0]['label']);
         $this->assertSame('Castle Lager', $recap['by_drink'][0]['label']);
+        $this->assertSame([], $recap['pins']);
     }
 }

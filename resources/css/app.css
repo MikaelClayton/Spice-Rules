@@ -101,7 +101,8 @@
 }
 
 [data-challenge-map],
-[data-insight-map] {
+[data-insight-map],
+[data-pub-golf-map] {
     z-index: 0;
     height: 100%;
 }

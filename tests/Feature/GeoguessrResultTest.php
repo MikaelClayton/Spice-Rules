@@ -736,4 +736,81 @@ class GeoguessrResultTest extends TestCase
             ->assertSee('Nobody has logged a daily this week yet.')
             ->assertSee('0/7 days logged');
     }
+
+    public function test_today_includes_round_progress_scores_and_omits_other_days(): void
+    {
+        $this->travelTo('2026-09-14 12:00:00');
+
+        $viewer = User::factory()->create(['name' => 'Viewer']);
+        $alex = User::factory()->create(['name' => 'Alex']);
+        $today = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create(['user_id' => $alex->id, 'username' => 'AlexGeo']),
+            'attempted_at' => now(),
+            'total_score' => 16665,
+            'challenge_token' => 'today-token',
+        ]);
+        $yesterday = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Sam']),
+            ]),
+            'attempted_at' => now()->subDay(),
+            'total_score' => 9999,
+            'challenge_token' => 'yesterday-token',
+        ]);
+
+        foreach ([1111, 2222, 3333, 4444, 5555] as $index => $score) {
+            GeoguesserRound::factory()->create([
+                'geoguesser_challenge_id' => $today->id,
+                'round_number' => $index + 1,
+                'score' => $score,
+            ]);
+        }
+
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $yesterday->id,
+            'round_number' => 1,
+            'score' => 9999,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index'))
+            ->assertOk()
+            ->assertSee('data-day-overview="today"', false)
+            ->assertSee('data-day-chart="progress"', false)
+            ->assertSee('data-day-chart="rounds"', false)
+            ->assertSee('data-day-legend', false)
+            ->assertSee('Round progress')
+            ->assertSee('Each round')
+            ->assertSee('"scores":[1111,2222,3333,4444,5555]', false)
+            ->assertDontSee('"scores":[9999]', false);
+    }
+
+    public function test_challenges_include_day_overview_charts_for_the_selected_daily(): void
+    {
+        $viewer = User::factory()->create();
+        $challenge = GeoguesserChallenge::factory()->create([
+            'geoguesser_id' => Geoguesser::factory()->create([
+                'user_id' => User::factory()->create(['name' => 'Celeste']),
+            ]),
+            'challenge_token' => 'DayChartsToken',
+            'attempted_at' => now()->subDay(),
+            'total_score' => 15000,
+        ]);
+
+        GeoguesserRound::factory()->create([
+            'geoguesser_challenge_id' => $challenge->id,
+            'round_number' => 1,
+            'score' => 4321,
+            'guess_lat' => 1.1,
+            'guess_lng' => 2.2,
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('geoguessr.index', ['tab' => 'challenges']))
+            ->assertOk()
+            ->assertSee('data-day-overview="challenge"', false)
+            ->assertSee('The day')
+            ->assertSee('Round progress')
+            ->assertSee('4321');
+    }
 }

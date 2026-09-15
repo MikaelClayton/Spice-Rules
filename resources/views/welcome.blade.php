@@ -22,12 +22,8 @@
                 </a>
             </div>
             <div class="navbar-end gap-2">
-                @auth
-                    <a href="{{ route('dashboard') }}" class="btn btn-primary">Dashboard</a>
-                @else
-                    <a href="{{ route('login') }}" class="btn btn-ghost">Log in</a>
-                    <a href="{{ route('register') }}" class="btn btn-primary">Sign up</a>
-                @endauth
+                <a href="{{ route('login') }}" class="btn btn-ghost">Log in</a>
+                <a href="{{ route('register') }}" class="btn btn-primary">Sign up</a>
             </div>
         </div>
 
@@ -38,12 +34,8 @@
                 Create an account or log in to get started.
             </p>
             <div class="mt-8 flex flex-wrap justify-center gap-3">
-                @auth
-                    <a href="{{ route('dashboard') }}" class="btn btn-primary btn-lg">Go to dashboard</a>
-                @else
-                    <a href="{{ route('register') }}" class="btn btn-primary btn-lg">Sign up</a>
-                    <a href="{{ route('login') }}" class="btn btn-outline btn-lg">Log in</a>
-                @endauth
+                <a href="{{ route('register') }}" class="btn btn-primary btn-lg">Sign up</a>
+                <a href="{{ route('login') }}" class="btn btn-outline btn-lg">Log in</a>
             </div>
         </main>
     </body>
