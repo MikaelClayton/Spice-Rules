@@ -52,6 +52,33 @@ class PubGolfDrinkLogTest extends TestCase
             ->assertSee('Black Label');
     }
 
+    public function test_json_drink_logs_return_the_board_url(): void
+    {
+        $user = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create(['user_id' => $user->id]);
+        $drink = PubGolfCustomDrink::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Black Label',
+            'category' => PubGolfDrinkCategory::Beer,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('pub-golf.drinks.store', $crawl), [
+                'drink' => $drink->id,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'redirect' => route('pub-golf.show', $crawl),
+            ])
+            ->assertSessionHas('status', 'Black Label logged.');
+
+        $this->assertDatabaseHas('pub_golf_drink_logs', [
+            'pub_golf_crawl_id' => $crawl->id,
+            'user_id' => $user->id,
+            'drink_id' => $drink->id,
+        ]);
+    }
+
     public function test_logged_drink_times_use_south_african_standard_time(): void
     {
         $this->travelTo('2026-09-10 15:18:00');
@@ -273,6 +300,7 @@ class PubGolfDrinkLogTest extends TestCase
             ->assertDontSee('images/pub-golf/castle_lager')
             ->assertSee('Add drink')
             ->assertSee('Log this drink?')
+            ->assertSee('data-ajax', false)
             ->assertSee('Remove this drink?');
     }
 

@@ -189,6 +189,7 @@ function bindDrinkConfirmations(root) {
     const denyUrl = root.getAttribute('data-location-deny-url') || '';
     let allowLocation = root.getAttribute('data-allow-location') === '1';
     let locationPromise = Promise.resolve();
+    let locationPending = false;
 
     const fillCoordinates = (latitude, longitude) => {
         if (latitudeNode instanceof HTMLInputElement) {
@@ -225,22 +226,20 @@ function bindDrinkConfirmations(root) {
     };
 
     const captureLocation = () => {
-        fillCoordinates('', '');
-
-        if (logForm instanceof HTMLFormElement) {
-            logForm.dataset.locationReady = '';
-        }
-
         if (!allowLocation || !navigator.geolocation) {
+            locationPending = false;
             locationPromise = Promise.resolve();
+            fillCoordinates('', '');
 
             return;
         }
 
+        locationPending = true;
         locationPromise = new Promise((resolve) => {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     fillCoordinates(String(position.coords.latitude), String(position.coords.longitude));
+                    locationPending = false;
                     resolve();
                 },
                 (error) => {
@@ -248,9 +247,10 @@ function bindDrinkConfirmations(root) {
                         rememberLocationDenied();
                     }
 
+                    locationPending = false;
                     resolve();
                 },
-                { enableHighAccuracy: false, timeout: 4000, maximumAge: 0 },
+                { enableHighAccuracy: false, timeout: 4000, maximumAge: 45000 },
             );
         });
     };
@@ -288,23 +288,43 @@ function bindDrinkConfirmations(root) {
 
     if (logForm instanceof HTMLFormElement) {
         logForm.addEventListener('submit', async (event) => {
-            if (logForm.dataset.locationReady === '1') {
-                return;
-            }
-
             event.preventDefault();
+
             const button = logForm.querySelector('button[type="submit"]');
             setButtonLoading(button, true);
 
-            await Promise.race([
-                locationPromise,
-                new Promise((resolve) => {
-                    window.setTimeout(resolve, 2000);
-                }),
-            ]);
+            if (locationPending) {
+                await Promise.race([
+                    locationPromise,
+                    new Promise((resolve) => {
+                        window.setTimeout(resolve, 300);
+                    }),
+                ]);
+            }
 
-            logForm.dataset.locationReady = '1';
-            logForm.submit();
+            try {
+                const response = await fetch(logForm.action, {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                    body: new FormData(logForm),
+                });
+
+                if (!response.ok) {
+                    window.location.assign(window.location.href);
+
+                    return;
+                }
+
+                const payload = await response.json().catch(() => null);
+                window.location.assign(payload?.redirect || window.location.href);
+            } catch {
+                setButtonLoading(button, false);
+            }
         });
     }
 

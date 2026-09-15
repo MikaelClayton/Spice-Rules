@@ -35,13 +35,40 @@ class LogPubGolfDrink
             $longitude = null;
         }
 
-        return PubGolfDrinkLog::query()->create([
+        $log = PubGolfDrinkLog::query()->create([
             'pub_golf_crawl_id' => $crawl->id,
             'user_id' => $user->id,
             'drink_id' => $drink->customId,
-            'location' => $this->resolvePubGolfPlace->handle($latitude, $longitude),
+            'location' => null,
             'latitude' => $latitude,
             'longitude' => $longitude,
         ]);
+
+        if ($latitude !== null && $longitude !== null) {
+            $this->resolvePlaceAfterResponse($log->id, $latitude, $longitude);
+        }
+
+        return $log;
+    }
+
+    private function resolvePlaceAfterResponse(int $logId, float $latitude, float $longitude): void
+    {
+        defer(static function (): void {
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+        }, 'pub-golf-flush-response');
+
+        $resolvePubGolfPlace = $this->resolvePubGolfPlace;
+
+        defer(static function () use ($logId, $latitude, $longitude, $resolvePubGolfPlace): void {
+            $location = $resolvePubGolfPlace->handle($latitude, $longitude);
+
+            if (! is_string($location) || $location === '') {
+                return;
+            }
+
+            PubGolfDrinkLog::query()->whereKey($logId)->update(['location' => $location]);
+        }, 'pub-golf-resolve-place-'.$logId);
     }
 }

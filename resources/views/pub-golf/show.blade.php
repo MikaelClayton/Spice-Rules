@@ -351,7 +351,7 @@
                 <form method="dialog">
                     <button class="btn btn-ghost">Cancel</button>
                 </form>
-                <form method="POST" action="{{ route('pub-golf.drinks.store', $crawl) }}" data-log-form>
+                <form method="POST" action="{{ route('pub-golf.drinks.store', $crawl) }}" data-log-form data-ajax>
                     @csrf
                     <input type="hidden" name="drink" value="" data-confirm-log-value>
                     <input type="hidden" name="latitude" value="" data-log-latitude>
