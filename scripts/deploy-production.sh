@@ -57,6 +57,7 @@ if [ -L public/storage ]; then
     esac
 fi
 
+rm -f public/hot
 rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
     bootstrap/cache/config.php bootstrap/cache/routes-v7.php \
     bootstrap/cache/events.php

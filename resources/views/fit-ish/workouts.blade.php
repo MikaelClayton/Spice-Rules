@@ -23,15 +23,15 @@
                             </div>
                         @endif
                         <div class="min-w-0 flex-1">
-                            <p class="truncate font-semibold leading-tight">{{ $workout['displayName'] }}</p>
+                            <p class="font-semibold leading-tight">{{ $workout['displayName'] }}</p>
                             @if ($workout['type'])
                                 <p class="mt-0.5 text-xs capitalize text-base-content/60">{{ $workout['type'] }}</p>
                             @endif
-                            @if ($workout['description'])
-                                <p class="mt-1 line-clamp-2 text-sm text-base-content/70">{{ $workout['description'] }}</p>
-                            @endif
                         </div>
                     </div>
+                    @if ($workout['description'])
+                        <p class="text-sm leading-relaxed text-base-content/70">{{ $workout['description'] }}</p>
+                    @endif
                     <dl class="grid grid-cols-3 gap-2 text-center text-xs sm:text-sm">
                         <div class="rounded-lg bg-base-200 px-2 py-2">
                             <dt class="text-base-content/50">Classes</dt>

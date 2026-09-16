@@ -8,6 +8,7 @@ use App\Services\FitIsh\BuildFitIshSessions;
 use App\Services\FitIsh\BuildFitIshToday;
 use App\Services\FitIsh\BuildFitIshWeekly;
 use App\Services\FitIsh\BuildFitIshWorkouts;
+use App\Services\FitIsh\BuildFitIshYou;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,6 +20,7 @@ class FitIshController extends Controller
         private readonly BuildFitIshWeekly $weekly,
         private readonly BuildFitIshSessions $sessions,
         private readonly BuildFitIshWorkouts $workouts,
+        private readonly BuildFitIshYou $you,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -61,6 +63,7 @@ class FitIshController extends Controller
                 ? $this->today->handle($selectedSessionDate)
                 : null,
             'workouts' => $this->workouts->handle(),
+            'you' => $this->you->handle($user),
         ]);
     }
 

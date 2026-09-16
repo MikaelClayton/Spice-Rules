@@ -8,8 +8,8 @@
     </div>
 
     <div class="mb-5">
-        <h1 class="text-2xl font-bold sm:text-3xl">Fit-Ish</h1>
-        <p class="mt-1 text-base-content/70">Lionheart classes, points, and who actually showed up.</p>
+        <h1 class="text-xl font-bold sm:text-3xl">Fit-Ish</h1>
+        <p class="mt-1 text-sm text-base-content/70 sm:text-base">Lionheart classes, points, and who actually showed up.</p>
     </div>
 
     @if (session('status'))
@@ -19,7 +19,7 @@
     @endif
 
     <div
-        class="tabs tabs-box w-full sm:tabs-lg"
+        class="tabs tabs-box tabs-xs w-full sm:tabs-md lg:tabs-lg"
         data-fit-ish-board
         data-session-day-url="{{ url('/fit-ish/days') }}/__DATE__"
     >
@@ -190,6 +190,8 @@
             @checked($activeTab === 'you')
         >
         <div class="tab-content mt-4 space-y-4">
+            @include('fit-ish.you')
+
             @if ($summaries->isEmpty())
                 <div class="card bg-base-100 shadow-xl">
                     <div class="card-body">

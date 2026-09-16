@@ -11,42 +11,48 @@
                     <p class="text-[11px] tabular-nums text-base-content/60">avg {{ $chart['average'] }} bpm</p>
                 @endif
             </div>
-            <p class="text-[11px] text-base-content/55">Each bar is that minute's min–max, colored by zone</p>
-            <div class="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-2 gap-y-1">
-                <div class="flex h-40 flex-col justify-between py-0.5 text-right text-[10px] leading-none text-base-content/55 tabular-nums">
-                    <span>{{ $chart['ceiling'] }}</span>
-                    <span>bpm</span>
-                    <span>{{ $chart['floor'] }}</span>
+            <div class="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-1.5 gap-y-1 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:gap-x-2">
+                <div class="flex h-36 flex-col justify-between py-0.5 text-right text-[10px] leading-none text-base-content/55 tabular-nums sm:h-44">
+                    @foreach ($chart['yTicks'] as $tick)
+                        <span>{{ $tick }}</span>
+                    @endforeach
                 </div>
-                <div class="relative h-40 min-w-0 overflow-hidden rounded-lg bg-base-200">
-                    @foreach ($chart['bands'] as $band)
+                <div class="relative h-36 min-w-0 sm:h-44">
+                    @foreach ($chart['gridMinutes'] as $minute)
                         <div
-                            class="pointer-events-none absolute inset-x-0"
-                            style="bottom: {{ $band['bottom'] }}%; height: {{ $band['height'] }}%; background: {{ $band['fill'] }}"
-                            title="{{ $band['name'] }}"
+                            class="pointer-events-none absolute inset-y-0 z-10 border-l border-dashed border-base-content/20"
+                            style="left: {{ round(100 * $minute / $chart['endMinute'], 2) }}%"
                         ></div>
                     @endforeach
-                    @if ($chart['averagePct'] !== null)
-                        <div
-                            class="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed border-base-content/40"
-                            style="bottom: {{ $chart['averagePct'] }}%"
-                        ></div>
-                    @endif
-                    <div class="absolute inset-0 z-20 flex items-stretch gap-px px-0.5">
+                    <div class="absolute inset-0 z-20 flex items-stretch gap-[3px] px-px">
                         @foreach ($chart['columns'] as $column)
                             <div class="relative min-w-0 flex-1" title="{{ $column['label'] }}">
-                                <div
-                                    class="absolute inset-x-0 rounded-sm {{ $column['recorded'] ? '' : 'opacity-40' }}"
-                                    style="bottom: {{ $column['bottom'] }}%; height: {{ $column['height'] }}%; background: {{ $column['color'] }}"
-                                ></div>
+                                @if ($column['recorded'])
+                                    @foreach ($column['segments'] as $segment)
+                                        <div
+                                            class="absolute inset-x-0"
+                                            style="bottom: {{ $segment['bottom'] }}%; height: {{ $segment['height'] }}%; background: {{ $segment['color'] }}"
+                                        ></div>
+                                    @endforeach
+                                @elseif ($column['trailingEmpty'])
+                                    <span class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] leading-none tracking-tighter text-base-content/35">··</span>
+                                @endif
                             </div>
                         @endforeach
                     </div>
                 </div>
                 <div></div>
-                <div class="flex justify-between text-[10px] tabular-nums text-base-content/55">
-                    <span>0 min</span>
-                    <span>{{ $chart['endMinute'] }} min</span>
+                <div class="relative h-4 text-[10px] tabular-nums text-base-content/55">
+                    @foreach ($chart['xTicks'] as $tick)
+                        <span
+                            @class([
+                                'absolute',
+                                '-translate-x-full' => $tick === $chart['endMinute'],
+                                '-translate-x-1/2' => $tick !== $chart['endMinute'],
+                            ])
+                            style="left: {{ round(100 * $tick / $chart['endMinute'], 2) }}%"
+                        >{{ $tick }}</span>
+                    @endforeach
                 </div>
             </div>
         @endif

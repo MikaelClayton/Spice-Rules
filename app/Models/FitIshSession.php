@@ -39,6 +39,8 @@ class FitIshSession extends Model
     /** @use HasFactory<FitIshSessionFactory> */
     use HasFactory;
 
+    private const CANDLE_COLOR = '#4C6FE8';
+
     /**
      * @return array<string, string>
      */
@@ -148,11 +150,13 @@ class FitIshSession extends Model
      * @return array{
      *     floor: int,
      *     ceiling: int,
+     *     midpoint: int,
+     *     yTicks: list<int>,
      *     average: int|null,
-     *     averagePct: float|null,
      *     endMinute: int,
-     *     bands: list<array{color: string, fill: string, bottom: float, height: float, name: string}>,
-     *     columns: list<array{minute: int, recorded: bool, bottom: float, height: float, color: string, label: string}>
+     *     xTicks: list<int>,
+     *     gridMinutes: list<int>,
+     *     columns: list<array{minute: int, recorded: bool, trailingEmpty: bool, bottom: float, height: float, color: string, segments: list<array{bottom: float, height: float, color: string}>, label: string}>
      * }|null
      */
     public function heartrateChart(): ?array
@@ -166,75 +170,145 @@ class FitIshSession extends Model
             $this->resting_hr_value,
             $recorded->min('bpm_min'),
         ], fn (mixed $value): bool => $value !== null));
-        $floor = max(40, ($floorCandidates === [] ? 50 : min($floorCandidates)) - 10);
+        $floor = max(40, $floorCandidates === [] ? 50 : (int) min($floorCandidates));
         $ceilingCandidates = array_values(array_filter([
             $this->max_heartrate,
-            $this->max_hr_value,
             $recorded->max('bpm_max'),
         ], fn (mixed $value): bool => $value !== null));
-        $ceiling = max($floor + 40, $ceilingCandidates === [] ? $floor + 80 : max($ceilingCandidates));
+        $dataMax = $ceilingCandidates === [] ? $floor + 80 : (int) max($ceilingCandidates);
+        $ceiling = max($floor + 40, $dataMax + 2);
         $span = max($ceiling - $floor, 1);
-        $average = $this->average_heartrate;
+        $midpoint = (int) round(($floor + $ceiling) / 2);
         $endMinute = max(
             1,
             (int) ($this->graphPoints->max('minute') ?: 0),
             (int) ($this->duration_in_minutes ?: 0),
         );
-        $zones = $this->zones->sortBy('zone_number')->values();
+        $xTicks = array_values(array_filter(
+            [15, 30, 45],
+            fn (int $minute): bool => $minute < $endMinute,
+        ));
+        $xTicks[] = $endMinute;
 
         return [
             'floor' => $floor,
             'ceiling' => $ceiling,
-            'average' => $average,
-            'averagePct' => $average === null ? null : $this->chartPct($average, $floor, $span),
+            'midpoint' => $midpoint,
+            'yTicks' => [$ceiling, $midpoint, $floor],
+            'average' => $this->average_heartrate,
             'endMinute' => $endMinute,
-            'bands' => $zones
-                ->map(function (FitIshSessionZone $zone, int $index) use ($floor, $ceiling, $span, $zones): array {
-                    $isLast = $index === $zones->count() - 1;
-                    $low = max($floor, (int) $zone->min_bpm);
-                    $high = $isLast ? $ceiling : min($ceiling, max((int) $zone->max_bpm, $low + 1));
+            'xTicks' => $xTicks,
+            'gridMinutes' => array_values(array_filter(
+                [15, 30],
+                fn (int $minute): bool => $minute > 0 && $minute < $endMinute,
+            )),
+            'columns' => $this->candlestickColumns($floor, $span),
+        ];
+    }
 
-                    return [
-                        'color' => $zone->swatch(),
-                        'fill' => $zone->swatch().'33',
-                        'bottom' => $this->chartPct($low, $floor, $span),
-                        'height' => max(0.0, $this->chartPct($high, $floor, $span) - $this->chartPct($low, $floor, $span)),
-                        'name' => $zone->shortName(),
-                    ];
-                })
-                ->filter(fn (array $band): bool => $band['height'] > 0)
-                ->values()
-                ->all(),
-            'columns' => $this->graphPoints
-                ->map(function (FitIshSessionGraphPoint $point) use ($floor, $span): array {
-                    if (! $point->hasRecording()) {
-                        return [
-                            'minute' => (int) $point->minute,
-                            'recorded' => false,
-                            'bottom' => 0.0,
-                            'height' => 4.0,
-                            'color' => '#9CA3AF',
-                            'label' => 'Minute '.$point->minute.': no reading',
-                        ];
-                    }
-
-                    $min = (int) ($point->bpm_min ?? $point->bpm_max ?? $floor);
-                    $max = (int) ($point->bpm_max ?? $min);
-                    $zone = $this->zoneForBpm($max);
-                    $bottom = $this->chartPct($min, $floor, $span);
-                    $top = $this->chartPct($max, $floor, $span);
-
+    /**
+     * @return list<array{minute: int, recorded: bool, trailingEmpty: bool, bottom: float, height: float, color: string, segments: list<array{bottom: float, height: float, color: string}>, label: string}>
+     */
+    private function candlestickColumns(int $floor, int $span): array
+    {
+        $columns = $this->graphPoints
+            ->map(function (FitIshSessionGraphPoint $point) use ($floor, $span): array {
+                if (! $point->hasRecording()) {
                     return [
                         'minute' => (int) $point->minute,
-                        'recorded' => true,
-                        'bottom' => $bottom,
-                        'height' => max(1.5, $top - $bottom),
-                        'color' => $zone?->swatch() ?? '#888888',
-                        'label' => 'Minute '.$point->minute.': '.$min.'–'.$max.' bpm'.($zone ? ' · '.$zone->shortName() : ''),
+                        'recorded' => false,
+                        'trailingEmpty' => false,
+                        'bottom' => 0.0,
+                        'height' => 0.0,
+                        'color' => self::CANDLE_COLOR,
+                        'segments' => [],
+                        'label' => 'Minute '.$point->minute.': no reading',
                     ];
-                })
-                ->all(),
-        ];
+                }
+
+                $min = (int) ($point->bpm_min ?? $point->bpm_max ?? $floor);
+                $max = (int) ($point->bpm_max ?? $min);
+                $zone = $this->zoneForBpm($max);
+                $bottom = $this->chartPct($min, $floor, $span);
+                $top = $this->chartPct($max, $floor, $span);
+
+                return [
+                    'minute' => (int) $point->minute,
+                    'recorded' => true,
+                    'trailingEmpty' => false,
+                    'bottom' => $bottom,
+                    'height' => max(1.5, $top - $bottom),
+                    'color' => $zone?->swatch() ?? self::CANDLE_COLOR,
+                    'segments' => $this->candleSegments($min, $max, $floor, $span),
+                    'label' => 'Minute '.$point->minute.': '.$min.'–'.$max.' bpm'.($zone ? ' · '.$zone->shortName() : ''),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $lastRecordedIndex = null;
+
+        foreach ($columns as $index => $column) {
+            if ($column['recorded']) {
+                $lastRecordedIndex = $index;
+            }
+        }
+
+        foreach ($columns as $index => $column) {
+            $columns[$index]['trailingEmpty'] = ! $column['recorded']
+                && ($lastRecordedIndex === null || $index > $lastRecordedIndex);
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @return list<array{bottom: float, height: float, color: string}>
+     */
+    private function candleSegments(int $min, int $max, int $floor, int $span): array
+    {
+        if ($max < $min) {
+            [$min, $max] = [$max, $min];
+        }
+
+        $cuts = [$min, $max];
+
+        foreach ($this->zones as $zone) {
+            $boundary = (int) $zone->min_bpm;
+
+            if ($boundary > $min && $boundary < $max) {
+                $cuts[] = $boundary;
+            }
+        }
+
+        $cuts = array_values(array_unique($cuts));
+        sort($cuts);
+
+        if (count($cuts) < 2) {
+            return [[
+                'bottom' => $this->chartPct($min, $floor, $span),
+                'height' => 1.5,
+                'color' => $this->zoneForBpm($min)?->swatch() ?? self::CANDLE_COLOR,
+            ]];
+        }
+
+        $segments = [];
+        $last = count($cuts) - 1;
+
+        for ($index = 0; $index < $last; $index++) {
+            $low = $cuts[$index];
+            $high = $cuts[$index + 1];
+            $bottom = $this->chartPct($low, $floor, $span);
+            $top = $this->chartPct($high, $floor, $span);
+
+            $segments[] = [
+                'bottom' => $bottom,
+                'height' => max(0.75, $top - $bottom),
+                'color' => $this->zoneForBpm($low)?->swatch() ?? self::CANDLE_COLOR,
+            ];
+        }
+
+        return $segments;
     }
 
     private function chartPct(int $bpm, int $floor, int $span): float

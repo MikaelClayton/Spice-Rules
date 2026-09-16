@@ -7,6 +7,7 @@ use App\Services\Mail\ResendClientFactory;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Mail\Transport\ResendTransport;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -35,5 +36,16 @@ class AppServiceProvider extends ServiceProvider
                 ),
             );
         });
+
+        $this->ignoreViteHotFileInProduction();
+    }
+
+    private function ignoreViteHotFileInProduction(): void
+    {
+        if (! $this->app->environment('production')) {
+            return;
+        }
+
+        Vite::useHotFile($this->app->storagePath('framework/vite-hot-disabled'));
     }
 }

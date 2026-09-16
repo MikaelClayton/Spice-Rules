@@ -12,5 +12,6 @@ When the user says deploy (or ship to production), run `scripts/deploy-productio
 
 - `--delete` on rsync (wipes production uploads).
 - Copy `public/storage`, `bootstrap/cache`, `.env`, `vendor`, `test.json`, or Firebase keys.
+- Leave `public/hot` on the VPS (phones then request CSS from `localhost:5173`). The script deletes it after rsync.
 - Skip `chown www-data` after rsync (Mac UIDs make PHP unable to write logos).
 - Run `fit-ish:sync --force` as part of a normal deploy (extra Lionheart calls). Missing workout logos are backfilled from saved CDN URLs only.

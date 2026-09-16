@@ -1,3 +1,13 @@
+@if (($zoneRadar['datasets'] ?? []) !== [])
+    @include('fit-ish.chart-canvas', [
+        'type' => 'radar',
+        'title' => 'Zone battle',
+        'caption' => 'Each colour is a person',
+        'payload' => $zoneRadar,
+        'showLegend' => true,
+    ])
+@endif
+
 @if ($sessions->isEmpty())
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">

@@ -19,7 +19,7 @@ class FitIshSessionTest extends TestCase
         $this->assertNull($session->heartrateChart());
     }
 
-    public function test_heartrate_chart_colors_each_minute_by_the_zone_of_peak_bpm(): void
+    public function test_heartrate_chart_paints_candlesticks_with_the_zones_in_each_minute(): void
     {
         $session = $this->fitIshSession();
         $session->setRelation('zones', Collection::make([
@@ -55,40 +55,84 @@ class FitIshSessionTest extends TestCase
                 'bpm_min' => 147,
                 'bpm_max' => 173,
             ]),
+            new FitIshSessionGraphPoint([
+                'minute' => 45,
+                'type' => 'noData',
+            ]),
         ]));
 
         $chart = $session->heartrateChart();
 
         $this->assertNotNull($chart);
-        $this->assertSame(66, $chart['floor']);
-        $this->assertSame(190, $chart['ceiling']);
+        $this->assertSame(76, $chart['floor']);
+        $this->assertSame(175, $chart['ceiling']);
+        $this->assertSame(126, $chart['midpoint']);
+        $this->assertSame([175, 126, 76], $chart['yTicks']);
         $this->assertSame(133, $chart['average']);
         $this->assertSame(45, $chart['endMinute']);
+        $this->assertSame([15, 30, 45], $chart['xTicks']);
+        $this->assertSame([15, 30], $chart['gridMinutes']);
         $this->assertSame([
             [
                 'minute' => 1,
                 'recorded' => false,
-                'color' => '#9CA3AF',
+                'trailingEmpty' => false,
+                'color' => '#4C6FE8',
+                'segments' => [],
                 'label' => 'Minute 1: no reading',
             ],
             [
                 'minute' => 4,
                 'recorded' => true,
+                'trailingEmpty' => false,
                 'color' => '#326EC8',
+                'segments' => ['#326EC8'],
                 'label' => 'Minute 4: 100–119 bpm · Recovery',
             ],
             [
                 'minute' => 41,
                 'recorded' => true,
+                'trailingEmpty' => false,
                 'color' => '#F2911B',
+                'segments' => ['#326EC8', '#F2911B'],
                 'label' => 'Minute 41: 147–173 bpm · High',
+            ],
+            [
+                'minute' => 45,
+                'recorded' => false,
+                'trailingEmpty' => true,
+                'color' => '#4C6FE8',
+                'segments' => [],
+                'label' => 'Minute 45: no reading',
             ],
         ], array_map(fn (array $column): array => [
             'minute' => $column['minute'],
             'recorded' => $column['recorded'],
+            'trailingEmpty' => $column['trailingEmpty'],
             'color' => $column['color'],
+            'segments' => array_column($column['segments'], 'color'),
             'label' => $column['label'],
         ], $chart['columns']));
+    }
+
+    public function test_heartrate_chart_falls_back_to_blue_when_the_session_has_no_zones(): void
+    {
+        $session = $this->fitIshSession();
+        $session->setRelation('zones', new Collection);
+        $session->setRelation('graphPoints', Collection::make([
+            new FitIshSessionGraphPoint([
+                'minute' => 4,
+                'type' => 'recordedBpm',
+                'bpm_min' => 100,
+                'bpm_max' => 119,
+            ]),
+        ]));
+
+        $chart = $session->heartrateChart();
+
+        $this->assertNotNull($chart);
+        $this->assertSame('#4C6FE8', $chart['columns'][0]['color']);
+        $this->assertSame(['#4C6FE8'], array_column($chart['columns'][0]['segments'], 'color'));
     }
 
     private function fitIshSession(): FitIshSession

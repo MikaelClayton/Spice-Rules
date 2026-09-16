@@ -101,7 +101,9 @@ class FitIshBoardTest extends TestCase
             ->assertSee('High')
             ->assertSee('168 - 178 BPM')
             ->assertSee('01:41')
-            ->assertSee('avg 133');
+            ->assertSee('avg 133')
+            ->assertDontSee('#4C6FE8')
+            ->assertDontSee('colored by zone');
     }
 
     public function test_workout_logos_use_the_current_host_and_player_colour(): void
@@ -150,6 +152,143 @@ class FitIshBoardTest extends TestCase
             ->assertOk()
             ->assertSee('All Time')
             ->assertSee('48.3');
+    }
+
+    public function test_you_tab_shows_personal_streak_and_workout_averages(): void
+    {
+        $this->travelTo('2026-09-16 08:00:00');
+
+        $user = User::factory()->withFitIsh()->create();
+        $other = User::factory()->create();
+        $workout = FitIshWorkout::factory()->create([
+            'name' => 'Abacus',
+            'display_name' => 'Abacus',
+            'type' => 'resistance',
+        ]);
+        FitIshSession::factory()->create([
+            'user_id' => $user->id,
+            'fit_ish_workout_id' => $workout->id,
+            'class_date' => '2026-09-15',
+            'points' => 47.5,
+            'estimated_calories' => 550,
+            'average_heartrate' => 150,
+        ]);
+        FitIshSession::factory()->create([
+            'user_id' => $user->id,
+            'fit_ish_workout_id' => $workout->id,
+            'class_date' => '2026-09-16',
+            'points' => 47.5,
+            'estimated_calories' => 550,
+            'average_heartrate' => 150,
+        ]);
+        FitIshSession::factory()->create([
+            'user_id' => $other->id,
+            'fit_ish_workout_id' => $workout->id,
+            'class_date' => '2026-09-16',
+            'points' => 99.0,
+            'estimated_calories' => 900,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('fit-ish.index', ['tab' => 'you']))
+            ->assertOk()
+            ->assertSee('Longest streak')
+            ->assertSee('Total calories')
+            ->assertSee('Monthly mix')
+            ->assertSee('Abacus')
+            ->assertSee('data-fit-ish-chart="monthly"', false);
+    }
+
+    public function test_you_tab_escapes_workout_names_in_the_table(): void
+    {
+        $user = User::factory()->withFitIsh()->create();
+        $workout = FitIshWorkout::factory()->create([
+            'name' => 'Alert',
+            'display_name' => "<script>alert('xss')</script>",
+            'type' => 'cardio',
+        ]);
+        FitIshSession::factory()->create([
+            'user_id' => $user->id,
+            'fit_ish_workout_id' => $workout->id,
+            'class_date' => today()->toDateString(),
+            'points' => 40.0,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('fit-ish.index', ['tab' => 'you']))
+            ->assertOk()
+            ->assertDontSee("<script>alert('xss')</script>", false)
+            ->assertSee('alert');
+    }
+
+    public function test_today_tab_shows_a_zone_radar_for_each_player(): void
+    {
+        $this->travelTo('2026-09-16 08:00:00');
+
+        $user = User::factory()->withFitIsh()->create([
+            'name' => 'Ada Lovelace',
+            'color' => '#2A9D8F',
+        ]);
+        $ben = User::factory()->create(['name' => 'Ben']);
+        $adaSession = FitIshSession::factory()->create([
+            'user_id' => $user->id,
+            'class_date' => '2026-09-16',
+            'points' => 51.2,
+        ]);
+        $benSession = FitIshSession::factory()->create([
+            'user_id' => $ben->id,
+            'class_date' => '2026-09-16',
+            'points' => 40.0,
+        ]);
+        FitIshSessionZone::factory()->create([
+            'fit_ish_session_id' => $adaSession->id,
+            'zone_number' => 5,
+            'percentage_value' => 30,
+        ]);
+        FitIshSessionZone::factory()->create([
+            'fit_ish_session_id' => $benSession->id,
+            'zone_number' => 1,
+            'percentage_value' => 50,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('fit-ish.index'))
+            ->assertOk()
+            ->assertSee('Zone battle')
+            ->assertSee('data-fit-ish-chart="radar"', false)
+            ->assertSee('Ada')
+            ->assertSee('Ben');
+    }
+
+    public function test_today_tab_shows_full_player_workout_and_studio_names(): void
+    {
+        $this->travelTo('2026-09-16 08:00:00');
+
+        $user = User::factory()->withFitIsh()->create(['name' => 'Bronwyn McCall']);
+        $studio = FitIshStudio::factory()->faerieGlen()->create();
+        $workout = FitIshWorkout::factory()->create([
+            'name' => 'Triple Double',
+            'display_name' => 'TRIPLE DOUBLE',
+            'type' => 'cardio',
+        ]);
+        FitIshSession::factory()->create([
+            'user_id' => $user->id,
+            'fit_ish_studio_id' => $studio->id,
+            'fit_ish_workout_id' => $workout->id,
+            'class_date' => '2026-09-16',
+            'class_time' => '06:00:00',
+            'points' => 47.4,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('fit-ish.index'))
+            ->assertOk()
+            ->assertSee('Bronwyn McCall')
+            ->assertSee('TRIPLE DOUBLE')
+            ->assertSee('F45 Faerie Glen')
+            ->assertSee('6:00am')
+            ->assertSee('cardio')
+            ->assertSee('47.4');
     }
 
     public function test_today_tab_does_not_render_a_past_session_day(): void
@@ -218,7 +357,7 @@ class FitIshBoardTest extends TestCase
 
         $user = User::factory()->withFitIsh()->create();
         $workout = FitIshWorkout::factory()->phoenix()->create([
-            'description' => 'A resistance burner.',
+            'description' => 'Phoenix is a resistance burner with a gruelling 3:1 work to rest ratio. Short, sharp sets of plyometric, agility and speed work designed to keep the heart rate high.',
         ]);
         FitIshSession::factory()->create([
             'user_id' => $user->id,
@@ -233,7 +372,7 @@ class FitIshBoardTest extends TestCase
             ->assertSee('Workouts')
             ->assertSee('PHOENIX')
             ->assertSee('resistance')
-            ->assertSee('A resistance burner.')
+            ->assertSee('Phoenix is a resistance burner with a gruelling 3:1 work to rest ratio. Short, sharp sets of plyometric, agility and speed work designed to keep the heart rate high.')
             ->assertSee('48.3');
     }
 

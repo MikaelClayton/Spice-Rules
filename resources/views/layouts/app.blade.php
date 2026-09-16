@@ -52,7 +52,7 @@
             </div>
         </div>
 
-        <main class="mx-auto min-w-0 max-w-5xl px-4 py-6 sm:py-10">
+        <main class="mx-auto min-w-0 max-w-5xl px-3 py-4 sm:px-4 sm:py-10">
             @yield('content')
         </main>
     </body>

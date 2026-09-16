@@ -70,6 +70,8 @@ class FitIshDayTest extends TestCase
         $this->assertStringContainsString('Recovery', $html);
         $this->assertStringContainsString('40.0', $html);
         $this->assertStringNotContainsString('99.0', $html);
+        $this->assertStringContainsString('Zone battle', $html);
+        $this->assertStringContainsString('data-fit-ish-chart="radar"', $html);
     }
 
     public function test_session_day_escapes_player_names(): void

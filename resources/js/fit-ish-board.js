@@ -1,3 +1,5 @@
+import { bindFitIshCharts, renderFitIshCharts } from './fit-ish-charts';
+
 const root = document.querySelector('[data-fit-ish-board]');
 
 if (root instanceof HTMLElement) {
@@ -34,6 +36,7 @@ function bindFitIshBoard(board) {
     });
 
     maybeLoadSessions(board, cache, dayUrl, loadState);
+    bindFitIshCharts(board);
 }
 
 function syncTabUrl(tab) {
@@ -104,6 +107,7 @@ async function loadSessionDay(board, cache, dayUrl, date, loadState) {
     if (cache.has(date)) {
         region.innerHTML = cache.get(date);
         region.setAttribute('data-loaded-date', date);
+        renderFitIshCharts(region);
 
         return;
     }
@@ -139,6 +143,7 @@ async function loadSessionDay(board, cache, dayUrl, date, loadState) {
         cache.set(date, html);
         region.innerHTML = html;
         region.setAttribute('data-loaded-date', date);
+        renderFitIshCharts(region);
     } catch {
         if (controller.signal.aborted) {
             return;

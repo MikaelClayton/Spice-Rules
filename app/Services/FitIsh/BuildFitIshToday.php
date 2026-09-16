@@ -7,12 +7,15 @@ use Illuminate\Support\Collection;
 
 class BuildFitIshToday
 {
+    public function __construct(private readonly BuildFitIshZoneRadar $radar) {}
+
     /**
      * @return array{
      *     date: string,
      *     isToday: bool,
      *     sessions: Collection<int, FitIshSession>,
      *     ranks: array<int, int>,
+     *     zoneRadar: array{labels: list<string>, datasets: list<array{label: string, color: string, values: list<float>}>},
      *     mostCalories: int|null,
      *     highestAverageHr: int|null,
      *     mostHardSeconds: int|null
@@ -34,6 +37,7 @@ class BuildFitIshToday
             'isToday' => $day === today()->toDateString(),
             'sessions' => $sessions,
             'ranks' => $this->ranks($sessions),
+            'zoneRadar' => $this->radar->forPeople($sessions),
             ...$this->awards($sessions),
         ];
     }
