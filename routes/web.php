@@ -8,6 +8,9 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceTokenController;
 use App\Http\Controllers\FirebaseMessagingServiceWorkerController;
+use App\Http\Controllers\FitIshController;
+use App\Http\Controllers\FitIshDayController;
+use App\Http\Controllers\FitIshStudioController;
 use App\Http\Controllers\GeoguessrController;
 use App\Http\Controllers\GeoguessrLiveController;
 use App\Http\Controllers\ProfileController;
@@ -52,6 +55,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/geoguessr', [GeoguessrController::class, 'index'])->name('geoguessr.index');
     Route::get('/geoguessr/live', GeoguessrLiveController::class)->name('geoguessr.live');
+    Route::get('/fit-ish', [FitIshController::class, 'index'])->name('fit-ish.index');
+    Route::get('/fit-ish/days/{date}', FitIshDayController::class)
+        ->where('date', '\d{4}-\d{2}-\d{2}')
+        ->name('fit-ish.days.show');
     Route::get('/pub-golf', [PubGolfCrawlController::class, 'index'])->name('pub-golf.index');
     Route::post('/pub-golf', [PubGolfCrawlController::class, 'store'])->name('pub-golf.store');
     Route::post('/pub-golf/joins', [PubGolfCrawlJoinController::class, 'store'])->name('pub-golf.joins.store');
@@ -92,6 +99,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/pub-golf', [ProfileController::class, 'updatePubGolf'])->name('profile.pub-golf.update');
+    Route::patch('/profile/fit-ish', [ProfileController::class, 'updateFitIsh'])->name('profile.fit-ish.update');
+    Route::post('/profile/fit-ish/sync', [ProfileController::class, 'syncFitIsh'])->name('profile.fit-ish.sync');
+    Route::post('/profile/fit-ish/studios', [FitIshStudioController::class, 'store'])->name('profile.fit-ish.studios.store');
+    Route::patch('/profile/fit-ish/studios/{fitIshStudio}', [FitIshStudioController::class, 'update'])->name('profile.fit-ish.studios.update');
+    Route::delete('/profile/fit-ish/studios/{fitIshStudio}', [FitIshStudioController::class, 'destroy'])->name('profile.fit-ish.studios.destroy');
     Route::post('/profile/geoguessr', [ProfileController::class, 'updateGeoguessr'])->name('profile.geoguessr.update');
     Route::post('/profile/geoguessr/sync', [ProfileController::class, 'syncGeoguessr'])->name('profile.geoguessr.sync');
     Route::get('/profile/geoguessr/challenges', [ProfileController::class, 'geoguessrChallenges'])->name('profile.geoguessr.challenges');

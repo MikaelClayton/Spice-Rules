@@ -6,8 +6,29 @@
     $tab = match (true) {
         $errors->has('ncfa') || $errors->has('sync') => 'geoguessr',
         $errors->has('allow_pub_golf_location') => 'pub-golf',
+        $errors->has('fit_ish_user_id')
+            || $errors->has('fit_ish_serial')
+            || $errors->has('studio_ids')
+            || $errors->has('studio_id')
+            || $errors->has('code')
+            || $errors->has('studio')
+            || $errors->has('fit_ish')
+            || $errors->has('timezone')
+            || $errors->has('name') && request()->routeIs('profile.fit-ish.*') => 'fit-ish',
         default => $activeTab,
     };
+    $accountError = $errors->any()
+        && ! $errors->has('ncfa')
+        && ! $errors->has('sync')
+        && ! $errors->has('allow_pub_golf_location')
+        && ! $errors->has('fit_ish_user_id')
+        && ! $errors->has('fit_ish_serial')
+        && ! $errors->has('studio_ids')
+        && ! $errors->has('studio_id')
+        && ! $errors->has('studio')
+        && ! $errors->has('fit_ish')
+        && ! $errors->has('code')
+        && ! $errors->has('timezone');
 @endphp
 
 @section('content')
@@ -37,7 +58,7 @@
                     <h2 class="card-title">Your details</h2>
                     <p class="text-base-content/70">Update the name and email you use on Spice Rules.</p>
 
-                    @if ($errors->any() && ! $errors->has('ncfa') && ! $errors->has('sync') && ! $errors->has('allow_pub_golf_location'))
+                    @if ($accountError)
                         <div role="alert" class="alert alert-error">
                             <span>{{ $errors->first() }}</span>
                         </div>
@@ -394,6 +415,190 @@
                     </div>
                 </section>
             @endif
+        </div>
+
+        <input
+            type="radio"
+            name="profile_tabs"
+            class="tab grow"
+            aria-label="Fit-Ish"
+            data-tab="fit-ish"
+            @checked($tab === 'fit-ish')
+        >
+        <div class="tab-content mt-4 space-y-4">
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Fit-Ish</h2>
+                    <p class="text-base-content/70">
+                        Link your Lionheart user ID so Spice Rules can pull classes. The clubhouse tile appears after this is saved.
+                    </p>
+
+                    @if ($errors->has('fit_ish_user_id') || $errors->has('fit_ish_serial') || $errors->has('studio_ids') || $errors->has('fit_ish'))
+                        <div role="alert" class="alert alert-error">
+                            <span>{{ $errors->first('fit_ish_user_id') ?: $errors->first('fit_ish_serial') ?: $errors->first('studio_ids') ?: $errors->first('fit_ish') }}</span>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('profile.fit-ish.update') }}" class="space-y-4">
+                        @csrf
+                        @method('PATCH')
+
+                        <fieldset class="fieldset">
+                            <label class="label" for="fit_ish_user_id">Lionheart user ID</label>
+                            <input
+                                id="fit_ish_user_id"
+                                type="text"
+                                inputmode="numeric"
+                                name="fit_ish_user_id"
+                                value="{{ old('fit_ish_user_id', $user->fit_ish_user_id) }}"
+                                class="input w-full font-mono @error('fit_ish_user_id') input-error @enderror"
+                                autocomplete="off"
+                                placeholder="13138221"
+                            >
+                        </fieldset>
+
+                        <fieldset class="fieldset">
+                            <label class="label" for="fit_ish_serial">Lionheart serial</label>
+                            <input
+                                id="fit_ish_serial"
+                                type="text"
+                                name="fit_ish_serial"
+                                value="{{ old('fit_ish_serial', $user->fit_ish_serial) }}"
+                                class="input w-full font-mono @error('fit_ish_serial') input-error @enderror"
+                                autocomplete="off"
+                                placeholder="On the back of the puck"
+                            >
+                            <p class="label text-base-content/60">Used to look up today's class if Lionheart does not return a session list.</p>
+                        </fieldset>
+
+                        <fieldset class="fieldset">
+                            <legend class="label">Studios</legend>
+                            <div class="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-base-300 p-2">
+                                @forelse ($fitIshStudios as $studio)
+                                    <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-base-200">
+                                        <input
+                                            type="checkbox"
+                                            name="studio_ids[]"
+                                            value="{{ $studio->id }}"
+                                            class="checkbox checkbox-primary"
+                                            @checked(in_array($studio->id, old('studio_ids', $linkedStudioIds), false))
+                                        >
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block font-medium">{{ $studio->name }}</span>
+                                            <span class="block text-xs text-base-content/60">{{ $studio->code }} · {{ $studio->timezone }}</span>
+                                        </span>
+                                    </label>
+                                @empty
+                                    <p class="px-2 py-3 text-sm text-base-content/60">Add a studio below, then tick it here.</p>
+                                @endforelse
+                            </div>
+                        </fieldset>
+
+                        <button type="submit" class="btn btn-primary w-full sm:w-auto">Save Fit-Ish</button>
+                    </form>
+
+                    @if (filled($user->fit_ish_user_id))
+                        <form method="POST" action="{{ route('profile.fit-ish.sync') }}" class="mt-4 space-y-2">
+                            @csrf
+                            <button type="submit" class="btn btn-secondary">Sync classes</button>
+                            <p class="text-sm text-base-content/70">Pull your latest Lionheart sessions without waiting for the 30-minute refresh.</p>
+                        </form>
+                    @endif
+
+                    <div class="collapse collapse-arrow bg-base-200 mt-4">
+                        <input type="checkbox">
+                        <div class="collapse-title font-medium">How to get your user ID</div>
+                        <div class="collapse-content text-sm space-y-2">
+                            <p>It is not shown in the F45 app. Open a completed Lionheart class with Charles (or Proxyman) and copy <code class="font-mono">user_id</code> from the request URL. Serial is on the back of the heart-rate puck.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body gap-4">
+                    <h2 class="card-title">Studios</h2>
+                    <p class="text-base-content/70">Add the studios you visit. The code and studio ID come from the Lionheart session JSON.</p>
+
+                    @if ($errors->has('studio_id') || $errors->has('code') || $errors->has('timezone') || $errors->has('studio') || ($errors->has('name') && $tab === 'fit-ish'))
+                        <div role="alert" class="alert alert-error">
+                            <span>{{ $errors->first('studio') ?: $errors->first('studio_id') ?: $errors->first('code') ?: $errors->first('timezone') ?: $errors->first('name') }}</span>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('profile.fit-ish.studios.store') }}" class="grid gap-3 sm:grid-cols-2">
+                        @csrf
+                        <fieldset class="fieldset">
+                            <label class="label" for="studio_id">Studio ID</label>
+                            <input id="studio_id" type="number" name="studio_id" value="{{ old('studio_id') }}" class="input w-full @error('studio_id') input-error @enderror" required placeholder="5061">
+                        </fieldset>
+                        <fieldset class="fieldset">
+                            <label class="label" for="studio_code">Code</label>
+                            <input id="studio_code" type="text" name="code" value="{{ old('code') }}" class="input w-full font-mono @error('code') input-error @enderror" required placeholder="ojb7">
+                        </fieldset>
+                        <fieldset class="fieldset sm:col-span-2">
+                            <label class="label" for="studio_name">Name</label>
+                            <input id="studio_name" type="text" name="name" value="{{ old('name') }}" class="input w-full @error('name') input-error @enderror" required placeholder="F45 Faerie Glen">
+                        </fieldset>
+                        <fieldset class="fieldset">
+                            <label class="label" for="studio_timezone">Timezone</label>
+                            <input id="studio_timezone" type="text" name="timezone" value="{{ old('timezone', 'Africa/Johannesburg') }}" class="input w-full @error('timezone') input-error @enderror" required>
+                        </fieldset>
+                        <fieldset class="fieldset justify-end">
+                            <label class="label cursor-pointer justify-start gap-3 pt-8">
+                                <input type="hidden" name="is_loaner" value="0">
+                                <input type="checkbox" name="is_loaner" value="1" class="checkbox checkbox-primary" @checked(old('is_loaner'))>
+                                <span>Loaner studio</span>
+                            </label>
+                        </fieldset>
+                        <div class="sm:col-span-2">
+                            <button type="submit" class="btn btn-outline">Add studio</button>
+                        </div>
+                    </form>
+
+                    <ul class="space-y-3">
+                        @foreach ($fitIshStudios as $studio)
+                            <li class="rounded-xl border border-base-300 p-3">
+                                <form method="POST" action="{{ route('profile.fit-ish.studios.update', $studio) }}" class="grid gap-3 sm:grid-cols-2">
+                                    @csrf
+                                    @method('PATCH')
+                                    <fieldset class="fieldset">
+                                        <label class="label">Studio ID</label>
+                                        <input type="number" name="studio_id" value="{{ old('studio_id', $studio->external_id) }}" class="input w-full" required>
+                                    </fieldset>
+                                    <fieldset class="fieldset">
+                                        <label class="label">Code</label>
+                                        <input type="text" name="code" value="{{ old('code', $studio->code) }}" class="input w-full font-mono" required>
+                                    </fieldset>
+                                    <fieldset class="fieldset sm:col-span-2">
+                                        <label class="label">Name</label>
+                                        <input type="text" name="name" value="{{ old('name', $studio->name) }}" class="input w-full" required>
+                                    </fieldset>
+                                    <fieldset class="fieldset">
+                                        <label class="label">Timezone</label>
+                                        <input type="text" name="timezone" value="{{ old('timezone', $studio->timezone) }}" class="input w-full" required>
+                                    </fieldset>
+                                    <fieldset class="fieldset">
+                                        <label class="label cursor-pointer justify-start gap-3 pt-8">
+                                            <input type="hidden" name="is_loaner" value="0">
+                                            <input type="checkbox" name="is_loaner" value="1" class="checkbox checkbox-primary" @checked(old('is_loaner', $studio->is_loaner))>
+                                            <span>Loaner studio</span>
+                                        </label>
+                                    </fieldset>
+                                    <div class="flex flex-wrap gap-2 sm:col-span-2">
+                                        <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                                    </div>
+                                </form>
+                                <form method="POST" action="{{ route('profile.fit-ish.studios.destroy', $studio) }}" class="mt-2">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-ghost text-error">Delete</button>
+                                </form>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
         </div>
 
         <input

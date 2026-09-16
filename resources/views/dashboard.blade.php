@@ -5,7 +5,7 @@
 @section('content')
     <div class="mb-8">
         <h1 class="text-3xl font-bold">Clubhouse</h1>
-        <p class="mt-1 text-base-content/70">GeoGuessr, wickets, and pub golf. Pick a board and see how the club is doing.</p>
+        <p class="mt-1 text-base-content/70">Pick a board and see how the club is doing.</p>
     </div>
 
     <ul class="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">

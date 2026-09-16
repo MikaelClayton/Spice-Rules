@@ -1,0 +1,520 @@
+{
+    "status": 200,
+    "success": true,
+    "data": {
+        "sessionId": "2026-09-15_0600:studio:ojb7:serial:1352",
+        "version": {
+            "tag": "v2.0.0",
+            "major": 2,
+            "minor": 0,
+            "patch": 0
+        },
+        "studio": {
+            "studioId": 5061,
+            "name": "F45 Faerie Glen",
+            "code": "ojb7",
+            "timezone": "Africa/Johannesburg",
+            "isLoaner": false
+        },
+        "workout": {
+            "name": "Phoenix",
+            "displayName": "PHOENIX",
+            "type": {
+                "id": 2,
+                "name": "resistance"
+            },
+            "logo": {
+                "url": "https://f45tv.cdn.f45.com/lionheart-logos/F45_Logos_Phoenix_600x600.png",
+                "dimensions": "600x600",
+                "width": 600,
+                "height": 600
+            },
+            "description": null
+        },
+        "classInfo": {
+            "localizedDateTime": "Tue, Sep 15, 2026 | 6:00am",
+            "date": "2026-09-15",
+            "time": "06:00:00",
+            "timestamp": 1789444800,
+            "timezone": "Africa/Johannesburg",
+            "durationInMinutes": 45
+        },
+        "summary": {
+            "points": 48.3,
+            "heartrate": {
+                "average": 133,
+                "max": 173
+            },
+            "estimatedCalories": 504,
+            "trackedDurationInSeconds": 2465
+        },
+        "heartrate": {
+            "calculationMethod": {
+                "id": 2,
+                "name": "karvonen"
+            },
+            "inputs": {
+                "maxHR": {
+                    "default": 190,
+                    "override": 190,
+                    "value": 190
+                },
+                "restingHR": {
+                    "default": 75,
+                    "override": 76,
+                    "value": 76
+                }
+            },
+            "zones": [
+                {
+                    "zoneId": 1,
+                    "name": "Very light / Recovery",
+                    "description": "Ideal for warm-ups, cool-downs, and active recovery.",
+                    "colorHex": "#326EC8",
+                    "minPercentage": 0,
+                    "maxPercentage": 60,
+                    "minBpm": 0,
+                    "maxBpm": 145,
+                    "bpmLabel": "<145 BPM",
+                    "computedDuration": {
+                        "seconds": 1536,
+                        "label": "25:36"
+                    },
+                    "computedPercentage": {
+                        "value": 62.3,
+                        "label": "62%"
+                    }
+                },
+                {
+                    "zoneId": 2,
+                    "name": "Light / Easy",
+                    "description": "Used for fat burning and improving endurance.",
+                    "colorHex": "#00A8B3",
+                    "minPercentage": 60,
+                    "maxPercentage": 70,
+                    "minBpm": 145,
+                    "maxBpm": 155,
+                    "bpmLabel": "145 - 155 BPM",
+                    "computedDuration": {
+                        "seconds": 438,
+                        "label": "07:18"
+                    },
+                    "computedPercentage": {
+                        "value": 17.8,
+                        "label": "18%"
+                    }
+                },
+                {
+                    "zoneId": 3,
+                    "name": "Moderate",
+                    "description": "Improves cardiovascular capacity.",
+                    "colorHex": "#19BE0B",
+                    "minPercentage": 70,
+                    "maxPercentage": 80,
+                    "minBpm": 156,
+                    "maxBpm": 167,
+                    "bpmLabel": "156 - 167 BPM",
+                    "computedDuration": {
+                        "seconds": 389,
+                        "label": "06:29"
+                    },
+                    "computedPercentage": {
+                        "value": 15.8,
+                        "label": "16%"
+                    }
+                },
+                {
+                    "zoneId": 4,
+                    "name": "High",
+                    "description": "Boosts speed and performance.",
+                    "colorHex": "#F2911B",
+                    "minPercentage": 80,
+                    "maxPercentage": 90,
+                    "minBpm": 168,
+                    "maxBpm": 178,
+                    "bpmLabel": "168 - 178 BPM",
+                    "computedDuration": {
+                        "seconds": 101,
+                        "label": "01:41"
+                    },
+                    "computedPercentage": {
+                        "value": 4.1,
+                        "label": "4%"
+                    }
+                },
+                {
+                    "zoneId": 5,
+                    "name": "Maximum",
+                    "description": "Intense bursts for anaerobic conditioning.",
+                    "colorHex": "#DD0C22",
+                    "minPercentage": 90,
+                    "maxPercentage": 100,
+                    "minBpm": 178,
+                    "maxBpm": 190,
+                    "bpmLabel": ">178 BPM",
+                    "computedDuration": {
+                        "seconds": 0,
+                        "label": "00:00"
+                    },
+                    "computedPercentage": {
+                        "value": 0,
+                        "label": "0%"
+                    }
+                }
+            ]
+        },
+        "graph": {
+            "type": "bpmCandlestick",
+            "timeSeries": [
+                {
+                    "minute": 1,
+                    "type": "noData"
+                },
+                {
+                    "minute": 2,
+                    "type": "noData"
+                },
+                {
+                    "minute": 3,
+                    "type": "noData"
+                },
+                {
+                    "minute": 4,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 100,
+                        "max": 119
+                    }
+                },
+                {
+                    "minute": 5,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 103,
+                        "max": 124
+                    }
+                },
+                {
+                    "minute": 6,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 108,
+                        "max": 121
+                    }
+                },
+                {
+                    "minute": 7,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 84,
+                        "max": 115
+                    }
+                },
+                {
+                    "minute": 8,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 88,
+                        "max": 113
+                    }
+                },
+                {
+                    "minute": 9,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 93,
+                        "max": 127
+                    }
+                },
+                {
+                    "minute": 10,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 108,
+                        "max": 127
+                    }
+                },
+                {
+                    "minute": 11,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 100,
+                        "max": 127
+                    }
+                },
+                {
+                    "minute": 12,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 100,
+                        "max": 125
+                    }
+                },
+                {
+                    "minute": 13,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 88,
+                        "max": 121
+                    }
+                },
+                {
+                    "minute": 14,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 91,
+                        "max": 123
+                    }
+                },
+                {
+                    "minute": 15,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 93,
+                        "max": 112
+                    }
+                },
+                {
+                    "minute": 16,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 104,
+                        "max": 144
+                    }
+                },
+                {
+                    "minute": 17,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 133,
+                        "max": 151
+                    }
+                },
+                {
+                    "minute": 18,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 138,
+                        "max": 160
+                    }
+                },
+                {
+                    "minute": 19,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 129,
+                        "max": 162
+                    }
+                },
+                {
+                    "minute": 20,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 114,
+                        "max": 142
+                    }
+                },
+                {
+                    "minute": 21,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 107,
+                        "max": 136
+                    }
+                },
+                {
+                    "minute": 22,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 111,
+                        "max": 129
+                    }
+                },
+                {
+                    "minute": 23,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 102,
+                        "max": 145
+                    }
+                },
+                {
+                    "minute": 24,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 128,
+                        "max": 149
+                    }
+                },
+                {
+                    "minute": 25,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 143,
+                        "max": 155
+                    }
+                },
+                {
+                    "minute": 26,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 108,
+                        "max": 142
+                    }
+                },
+                {
+                    "minute": 27,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 108,
+                        "max": 135
+                    }
+                },
+                {
+                    "minute": 28,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 86,
+                        "max": 118
+                    }
+                },
+                {
+                    "minute": 29,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 117,
+                        "max": 146
+                    }
+                },
+                {
+                    "minute": 30,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 149,
+                        "max": 165
+                    }
+                },
+                {
+                    "minute": 31,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 158,
+                        "max": 170
+                    }
+                },
+                {
+                    "minute": 32,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 141,
+                        "max": 172
+                    }
+                },
+                {
+                    "minute": 33,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 139,
+                        "max": 154
+                    }
+                },
+                {
+                    "minute": 34,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 152,
+                        "max": 166
+                    }
+                },
+                {
+                    "minute": 35,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 154,
+                        "max": 171
+                    }
+                },
+                {
+                    "minute": 36,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 138,
+                        "max": 166
+                    }
+                },
+                {
+                    "minute": 37,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 133,
+                        "max": 163
+                    }
+                },
+                {
+                    "minute": 38,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 125,
+                        "max": 157
+                    }
+                },
+                {
+                    "minute": 39,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 138,
+                        "max": 161
+                    }
+                },
+                {
+                    "minute": 40,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 134,
+                        "max": 171
+                    }
+                },
+                {
+                    "minute": 41,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 147,
+                        "max": 173
+                    }
+                },
+                {
+                    "minute": 42,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 151,
+                        "max": 173
+                    }
+                },
+                {
+                    "minute": 43,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 139,
+                        "max": 161
+                    }
+                },
+                {
+                    "minute": 44,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 124,
+                        "max": 151
+                    }
+                },
+                {
+                    "minute": 45,
+                    "type": "recordedBpm",
+                    "bpm": {
+                        "min": 144,
+                        "max": 147
+                    }
+                }
+            ]
+        }
+    }
+}

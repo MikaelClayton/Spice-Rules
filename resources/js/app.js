@@ -1,3 +1,4 @@
+import './fit-ish-board';
 import './button-loading';
 import './live-poll';
 import './geoguessr-board';

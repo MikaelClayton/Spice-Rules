@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\BrowseGeoguessrChallengesRequest;
 use App\Http\Requests\ShareGeoguessrChallengeAsTeamRequest;
+use App\Http\Requests\UpdateFitIshSettingsRequest;
 use App\Http\Requests\UpdateGeoguessrSettingsRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Requests\UpdatePubGolfSettingsRequest;
+use App\Models\FitIshStudio;
 use App\Models\Geoguesser;
 use App\Models\GeoguesserChallenge;
+use App\Services\FitIsh\SyncFitIshUsers;
 use App\Services\Geoguessr\GeoguessrClient;
 use App\Services\Geoguessr\ShareGeoguessrChallengeAsTeam;
 use App\Services\Geoguessr\SyncActiveGeoguessers;
@@ -44,6 +47,8 @@ class ProfileController extends Controller
             'challengeHasMore' => $challengePage['hasMore'],
             'shareTargets' => $canBrowseChallenges ? $this->shareTargets() : [],
             'firebase' => $firebase,
+            'fitIshStudios' => FitIshStudio::query()->orderBy('name')->orderBy('id')->get(),
+            'linkedStudioIds' => $user->fitIshStudios()->pluck('fit_ish_studios.id')->all(),
         ]);
     }
 
@@ -84,6 +89,74 @@ class ProfileController extends Controller
         return redirect()
             ->route('profile.edit', ['tab' => 'pub-golf'])
             ->with('status', 'Pub Golf settings were saved.');
+    }
+
+    public function updateFitIsh(UpdateFitIshSettingsRequest $request): RedirectResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        $user->forceFill([
+            'fit_ish_user_id' => $data['fit_ish_user_id'] ?? null,
+            'fit_ish_serial' => $data['fit_ish_serial'] ?? null,
+        ])->save();
+
+        $user->fitIshStudios()->sync($data['studio_ids'] ?? []);
+
+        return redirect()
+            ->route('profile.edit', ['tab' => 'fit-ish'])
+            ->with('status', 'Fit-Ish settings were saved.');
+    }
+
+    public function syncFitIsh(Request $request, SyncFitIshUsers $sync): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasFitIshProfile()) {
+            return redirect()
+                ->route('profile.edit', ['tab' => 'fit-ish'])
+                ->withErrors(['fit_ish' => 'Add your Lionheart user ID before syncing.']);
+        }
+
+        $throttleKey = 'fit-ish-sync:'.$user->id;
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 1)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            return redirect()
+                ->route('profile.edit', ['tab' => 'fit-ish'])
+                ->withErrors(['fit_ish' => "Wait {$seconds} seconds before syncing again."]);
+        }
+
+        RateLimiter::hit($throttleKey, 30);
+
+        try {
+            $imported = $sync->sync($user, force: true);
+        } catch (RequestException $exception) {
+            Log::warning('Fit-Ish profile sync was rejected', [
+                'user_id' => $user->id,
+                'status' => $exception->response?->status(),
+            ]);
+
+            return redirect()
+                ->route('profile.edit', ['tab' => 'fit-ish'])
+                ->withErrors(['fit_ish' => 'Lionheart rejected this request. Check the user ID and try again.']);
+        } catch (ConnectionException $exception) {
+            Log::warning('Fit-Ish profile sync could not connect', [
+                'user_id' => $user->id,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return redirect()
+                ->route('profile.edit', ['tab' => 'fit-ish'])
+                ->withErrors(['fit_ish' => 'Could not reach Lionheart. Try Sync again in a moment.']);
+        }
+
+        return redirect()
+            ->route('profile.edit', ['tab' => 'fit-ish'])
+            ->with('status', $imported === 1
+                ? 'Fit-Ish synced 1 class.'
+                : "Fit-Ish synced {$imported} classes.");
     }
 
     public function updateGeoguessr(UpdateGeoguessrSettingsRequest $request, GeoguessrClient $client): RedirectResponse
@@ -245,7 +318,7 @@ class ProfileController extends Controller
     {
         $tab = request()->string('tab')->toString();
 
-        return in_array($tab, ['geoguessr', 'pub-golf'], true) ? $tab : 'account';
+        return in_array($tab, ['geoguessr', 'pub-golf', 'fit-ish'], true) ? $tab : 'account';
     }
 
     /**

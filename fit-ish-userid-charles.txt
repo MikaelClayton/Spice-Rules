@@ -1,0 +1,85 @@
+Fit-Ish — get a friend’s Lionheart user_id (iPhone + Charles)
+
+You only need this once per person. What you want from Charles:
+
+  GET https://api.lionheart.f45.com/v3/sessions/...
+
+  Path looks like:
+  /v3/sessions/2025-03-12_0930:studio:7bpf:serial:366418?user_id=123456
+
+  Piece                    What it is
+  2025-03-12               class date
+  0930                     start time, no colon
+  after :studio:           studio code
+  after :serial:           Lionheart serial
+  user_id=                 F45 user id  ← this is the one to save
+
+  Also check Contents / JSON: data.studio.code and the workout payload.
+  You only need this once for their home studio.
+
+
+1. Charles on the computer
+   Install and open Charles.
+   Proxy → Proxy Settings. Note the port (usually 8888).
+   Proxy → SSL Proxying Settings.
+   Check Enable SSL Proxying.
+   Add host api.lionheart.f45.com port 443.
+   (You can use * / 443 if you want everything; noisier.)
+   Help → Local IP Address (or check Wi-Fi settings). Copy that IP, e.g. 192.168.1.20.
+   Leave Charles running. When the phone connects, click Allow.
+
+
+2. Point the iPhone at Charles
+   Settings → Wi-Fi → tap the i next to your network.
+   HTTP Proxy → Manual.
+   Server: the computer IP
+   Port: 8888
+   Authentication: Off
+   On the computer, Allow the iPhone when Charles asks.
+   Until you undo this, all phone web traffic goes through Charles.
+   Safari should load; if nothing loads, IP/port/Allow is wrong.
+
+
+3. Trust Charles’s certificate (required for HTTPS)
+   On the iPhone, open Safari (not Chrome) and go to https://chls.pro/ssl
+   Download the profile.
+   Settings → General → VPN & Device Management (wording varies).
+   Install Charles Proxy CA.
+   Settings → General → About → Certificate Trust Settings.
+   Enable full trust for Charles Proxy CA.
+   If decrypt still fails: Help → SSL Proxying → Reset Charles Root Certificate,
+   then reinstall and re-trust.
+
+
+4. Capture the Lionheart session
+   In Charles, click Recording (red button) if it is not already on.
+   Optional: in the filter box type lionheart.
+   On the phone, open the F45 app.
+   Go to Lionheart and tap a completed class (same screen that shows HR / points).
+   In Charles, find:
+     GET https://api.lionheart.f45.com/v3/sessions/...
+   Click the request → Contents / JSON.
+   Write down:
+     - user_id
+     - studio code (after :studio: or data.studio.code)
+     - serial (after :serial:)
+
+
+5. Undo the proxy (do this)
+   Settings → Wi-Fi → i → HTTP Proxy → Off.
+   Optionally remove the Charles profile and turn off cert trust.
+   If you leave Manual proxy on, apps break when Charles is closed.
+
+
+If it does not decrypt
+   SSL handshake failed after trusting the cert: Charles root may be expired —
+   reset it and reinstall.
+   Handshake still fails only for F45: the app may pin certificates. Charles cannot
+   decrypt that without extra device-level work. Do not jailbreak or unpin.
+   Android is harder: many apps ignore user-installed CAs. iOS is what this uses.
+
+
+Once you have studio, user_id, and serial, put them in the Postman environment
+and run Get class session with the class date/time.
+
+On Spice Rules: Profile → Fit-Ish → paste user_id, optional serial, pick studios, Sync.

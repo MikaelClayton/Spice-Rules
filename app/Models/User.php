@@ -14,7 +14,15 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'color', 'allow_pub_golf_location'])]
+#[Fillable([
+    'name',
+    'email',
+    'password',
+    'color',
+    'allow_pub_golf_location',
+    'fit_ish_user_id',
+    'fit_ish_serial',
+])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -109,9 +117,43 @@ class User extends Authenticatable
         return $this->hasMany(PubGolfDrinkLog::class);
     }
 
+    /**
+     * @return BelongsToMany<FitIshStudio, $this>
+     */
+    public function fitIshStudios(): BelongsToMany
+    {
+        return $this->belongsToMany(FitIshStudio::class)->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<FitIshSession, $this>
+     */
+    public function fitIshSessions(): HasMany
+    {
+        return $this->hasMany(FitIshSession::class);
+    }
+
+    /**
+     * @return HasMany<FitIshProfileSummary, $this>
+     */
+    public function fitIshProfileSummaries(): HasMany
+    {
+        return $this->hasMany(FitIshProfileSummary::class);
+    }
+
     public function allowsPubGolfLocation(): bool
     {
         return $this->allow_pub_golf_location === true;
+    }
+
+    public function hasFitIshProfile(): bool
+    {
+        return filled($this->fit_ish_user_id);
+    }
+
+    public function hasActiveGeoguessrProfile(): bool
+    {
+        return $this->geoguesser?->is_active === true;
     }
 
     public function boardColor(): string

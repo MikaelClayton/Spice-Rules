@@ -38,6 +38,7 @@ class ProfileTest extends TestCase
             ->assertSee('mikael@example.com')
             ->assertSee('Board colour')
             ->assertSee('GeoGuessr')
+            ->assertSee('Fit-Ish')
             ->assertSee('Pub Golf')
             ->assertSee('Allow location')
             ->assertSee('Turning this on asks your phone now.')
