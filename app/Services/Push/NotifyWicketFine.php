@@ -12,6 +12,52 @@ class NotifyWicketFine
 {
     public function __construct(private readonly FcmClient $fcm) {}
 
+    /**
+     * @param  list<array{target: User, fine: WicketFine}>  $issued
+     */
+    public function afterResponse(WicketGroup $group, User $issuer, array $issued): void
+    {
+        if ($issued === []) {
+            return;
+        }
+
+        defer(static function (): void {
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+        }, 'push-flush-response');
+
+        $groupId = $group->id;
+        $issuerId = $issuer->id;
+        $issuedIds = array_map(
+            fn (array $item): array => [
+                'target_id' => $item['target']->id,
+                'fine_id' => $item['fine']->id,
+            ],
+            $issued,
+        );
+
+        defer(function () use ($groupId, $issuerId, $issuedIds): void {
+            $group = WicketGroup::query()->find($groupId);
+            $issuer = User::query()->find($issuerId);
+
+            if ($group === null || $issuer === null) {
+                return;
+            }
+
+            foreach ($issuedIds as $item) {
+                $target = User::query()->find($item['target_id']);
+                $fine = WicketFine::query()->find($item['fine_id']);
+
+                if ($target === null || $fine === null) {
+                    continue;
+                }
+
+                $this->handle($group, $issuer, $target, $fine);
+            }
+        }, 'wickets-notify-fines-'.$groupId);
+    }
+
     public function handle(WicketGroup $group, User $issuer, User $target, WicketFine $fine): void
     {
         $this->notifyTarget($group, $issuer, $target, $fine);

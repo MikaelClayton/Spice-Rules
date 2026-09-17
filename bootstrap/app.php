@@ -31,12 +31,15 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('geoguessr:sync')->everyThirtyMinutes();
         $schedule->command('fit-ish:sync')
-            ->everyThirtyMinutes()
+            ->twiceDaily(8, 18)
             ->timezone('Africa/Johannesburg')
-            ->between('07:00', '23:59')
             ->withoutOverlapping();
         $schedule->command('pub-golf:end-stale')
             ->everyFifteenMinutes()
+            ->withoutOverlapping();
+        $schedule->command('spirdle:open-daily')
+            ->dailyAt('00:00')
+            ->timezone('Africa/Johannesburg')
             ->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {

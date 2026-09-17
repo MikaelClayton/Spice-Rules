@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\CronRun;
 use App\Services\Cron\RecordCronRun;
-use App\Services\FitIsh\FitIshSyncWindow;
 use App\Services\FitIsh\SyncFitIshUsers;
 use Illuminate\Console\Command;
 
@@ -14,15 +13,9 @@ class SyncFitIshCommand extends Command
 
     protected $description = 'Pull Lionheart sessions and profile summaries for Fit-Ish users';
 
-    public function handle(SyncFitIshUsers $sync, RecordCronRun $recordCronRun, FitIshSyncWindow $window): int
+    public function handle(SyncFitIshUsers $sync, RecordCronRun $recordCronRun): int
     {
         $force = (bool) $this->option('force');
-
-        if (! $force && $window->shouldSkip()) {
-            $this->info($window->skipMessage());
-
-            return self::SUCCESS;
-        }
 
         $result = $recordCronRun->handle(
             'fit-ish:sync',

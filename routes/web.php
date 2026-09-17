@@ -24,6 +24,13 @@ use App\Http\Controllers\PubGolfCustomDrinkController;
 use App\Http\Controllers\PubGolfDrinkLogController;
 use App\Http\Controllers\PubGolfDrinkUndoController;
 use App\Http\Controllers\PubGolfRecapController;
+use App\Http\Controllers\SpirdleController;
+use App\Http\Controllers\SpirdleGuessController;
+use App\Http\Controllers\SpirdleLiveController;
+use App\Http\Controllers\SpirdlePauseController;
+use App\Http\Controllers\SpirdlePlayController;
+use App\Http\Controllers\SpirdlePlayReviewController;
+use App\Http\Controllers\SpirdleResumeController;
 use App\Http\Controllers\WicketFineCompletionController;
 use App\Http\Controllers\WicketFineController;
 use App\Http\Controllers\WicketGroupController;
@@ -55,6 +62,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/geoguessr', [GeoguessrController::class, 'index'])->name('geoguessr.index');
     Route::get('/geoguessr/live', GeoguessrLiveController::class)->name('geoguessr.live');
+    Route::get('/spirdle', [SpirdleController::class, 'index'])->name('spirdle.index');
+    Route::get('/spirdle/live', SpirdleLiveController::class)->name('spirdle.live');
+    Route::get('/spirdle/play', [SpirdlePlayController::class, 'show'])->name('spirdle.play');
+    Route::get('/spirdle/plays/{spirdlePlay}', [SpirdlePlayReviewController::class, 'show'])->name('spirdle.plays.show');
+    Route::post('/spirdle/guesses', [SpirdleGuessController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('spirdle.guesses.store');
+    Route::post('/spirdle/pause', [SpirdlePauseController::class, 'store'])
+        ->name('spirdle.pause');
+    Route::post('/spirdle/resume', [SpirdleResumeController::class, 'store'])
+        ->name('spirdle.resume');
     Route::get('/fit-ish', [FitIshController::class, 'index'])->name('fit-ish.index');
     Route::get('/fit-ish/days/{date}', FitIshDayController::class)
         ->where('date', '\d{4}-\d{2}-\d{2}')

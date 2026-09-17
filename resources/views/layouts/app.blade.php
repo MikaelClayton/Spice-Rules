@@ -19,8 +19,8 @@
         @endif
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-screen bg-base-200">
-        <div class="navbar bg-base-100 border-b border-base-300">
+    <body class="flex min-h-dvh flex-col bg-base-200 @yield('bodyClass')">
+        <div class="navbar shrink-0 bg-base-100 border-b border-base-300">
             <div class="navbar-start">
                 <a href="{{ route('dashboard') }}" class="btn btn-ghost h-auto gap-2 px-2">
                     <img src="{{ asset('favicon.png') }}" alt="" class="h-8 w-8 rounded-lg">
@@ -52,8 +52,33 @@
             </div>
         </div>
 
-        <main class="mx-auto min-w-0 max-w-5xl px-3 py-4 sm:px-4 sm:py-10">
+        <main @class([
+            'mx-auto min-w-0 w-full max-w-5xl flex-1 px-3 sm:px-4',
+            'flex min-h-0 flex-col overflow-hidden py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]' => View::hasSection('playLayout'),
+            'py-4 sm:py-10' => ! View::hasSection('playLayout'),
+        ])>
             @yield('content')
         </main>
+        @unless (View::hasSection('hideSupportWidget'))
+            <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+            <script type="text/javascript">
+                function mountWidget(p) {
+                    window.dxSupportWidget = window.dxSupportWidget || {};
+                    Object.entries(p).forEach(([k, v]) => {
+                        window.dxSupportWidget[k] = v;
+                    })
+
+                    const s = document.createElement("script");
+                    s.type = "text/javascript";
+                    s.async = true;
+                    s.src = "https://web.divblox.app/widgets/dxSupportWidget.js";
+
+                    const s0 = document.getElementsByTagName("script")[0];
+                    s0.parentNode.insertBefore(s, s0);
+                };
+
+                mountWidget({projectGuid: "5d01f72d3089fff551c15982e277eeef"});
+            </script>
+        @endunless
     </body>
 </html>

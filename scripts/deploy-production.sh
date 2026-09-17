@@ -66,6 +66,8 @@ export COMPOSER_ALLOW_SUPERUSER=1
 composer install --no-dev --optimize-autoloader --no-interaction
 
 php artisan migrate --force --no-interaction
+php artisan spirdle:import-words --no-interaction
+php artisan spirdle:open-daily --no-interaction || true
 php artisan storage:link --no-interaction || true
 
 chown -R www-data:www-data /var/www/spice-rules

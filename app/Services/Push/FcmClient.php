@@ -4,10 +4,11 @@ namespace App\Services\Push;
 
 use App\Models\DeviceToken;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Throwable;
 
 class FcmClient
 {
@@ -72,21 +73,78 @@ class FcmClient
      */
     public function sendToTokens(iterable $tokens, array $notification): array
     {
+        $deviceTokens = Collection::make($tokens)
+            ->map(fn (mixed $token): string => (string) $token)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($deviceTokens->isEmpty()) {
+            return [
+                'sent' => 0,
+                'failed' => 0,
+            ];
+        }
+
+        if (! $this->firebase->isServerConfigured()) {
+            return [
+                'sent' => 0,
+                'failed' => $deviceTokens->count(),
+            ];
+        }
+
+        $accessToken = $this->accessToken->fetch();
+
+        if ($accessToken === null) {
+            return [
+                'sent' => 0,
+                'failed' => $deviceTokens->count(),
+            ];
+        }
+
+        $responses = $this->postMessages($accessToken, $deviceTokens, $notification);
+
+        if ($this->anyUnauthorized($responses)) {
+            $this->accessToken->forget();
+            $accessToken = $this->accessToken->fetch();
+
+            if ($accessToken !== null) {
+                $responses = $this->postMessages($accessToken, $deviceTokens, $notification);
+            }
+        }
+
         $sent = 0;
         $failed = 0;
 
-        foreach ($tokens as $token) {
-            try {
-                if ($this->sendToToken((string) $token, $notification)) {
-                    $sent++;
-                } else {
-                    $failed++;
-                }
-            } catch (Throwable $exception) {
-                Log::warning('FCM send failed', [
-                    'message' => $exception->getMessage(),
+        foreach ($deviceTokens as $token) {
+            $response = $responses[$token] ?? null;
+
+            if ($response instanceof Response && $response->successful()) {
+                $sent++;
+
+                continue;
+            }
+
+            $failed++;
+
+            if ($response instanceof ConnectionException) {
+                Log::warning('FCM send could not connect', [
+                    'message' => $response->getMessage(),
                 ]);
-                $failed++;
+
+                continue;
+            }
+
+            if ($response instanceof Response && $this->tokenIsInvalid($response)) {
+                DeviceToken::query()->where('token', $token)->delete();
+
+                continue;
+            }
+
+            if ($response instanceof Response) {
+                Log::warning('FCM send failed', [
+                    'status' => $response->status(),
+                ]);
             }
         }
 
@@ -101,32 +159,12 @@ class FcmClient
      */
     private function postMessage(string $accessToken, string $deviceToken, array $notification): ?Response
     {
-        $projectId = (string) config('services.firebase.project_id');
-
         try {
             return Http::withToken($accessToken)
                 ->connectTimeout(3)
                 ->timeout(10)
                 ->acceptJson()
-                ->post('https://fcm.googleapis.com/v1/projects/'.$projectId.'/messages:send', [
-                    'message' => [
-                        'token' => $deviceToken,
-                        'notification' => [
-                            'title' => $notification['title'],
-                            'body' => $notification['body'],
-                        ],
-                        'webpush' => [
-                            'fcm_options' => [
-                                'link' => $notification['url'],
-                            ],
-                            'notification' => [
-                                'title' => $notification['title'],
-                                'body' => $notification['body'],
-                                'icon' => url('/favicon.png'),
-                            ],
-                        ],
-                    ],
-                ]);
+                ->post($this->messagesUrl(), $this->messagePayload($deviceToken, $notification));
         } catch (ConnectionException $exception) {
             Log::warning('FCM send could not connect', [
                 'message' => $exception->getMessage(),
@@ -134,6 +172,73 @@ class FcmClient
 
             return null;
         }
+    }
+
+    /**
+     * @param  Collection<int, string>  $deviceTokens
+     * @param  array{title: string, body: string, url: string}  $notification
+     * @return array<string, Response|ConnectionException>
+     */
+    private function postMessages(string $accessToken, Collection $deviceTokens, array $notification): array
+    {
+        $url = $this->messagesUrl();
+
+        return Http::pool(function (Pool $pool) use ($accessToken, $deviceTokens, $notification, $url): void {
+            foreach ($deviceTokens as $token) {
+                $pool->as($token)
+                    ->withToken($accessToken)
+                    ->connectTimeout(3)
+                    ->timeout(10)
+                    ->acceptJson()
+                    ->post($url, $this->messagePayload($token, $notification));
+            }
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $responses
+     */
+    private function anyUnauthorized(array $responses): bool
+    {
+        foreach ($responses as $response) {
+            if ($response instanceof Response && $response->status() === 401) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array{title: string, body: string, url: string}  $notification
+     * @return array{message: array<string, mixed>}
+     */
+    private function messagePayload(string $deviceToken, array $notification): array
+    {
+        return [
+            'message' => [
+                'token' => $deviceToken,
+                'notification' => [
+                    'title' => $notification['title'],
+                    'body' => $notification['body'],
+                ],
+                'webpush' => [
+                    'fcm_options' => [
+                        'link' => $notification['url'],
+                    ],
+                    'notification' => [
+                        'title' => $notification['title'],
+                        'body' => $notification['body'],
+                        'icon' => url('/favicon.png'),
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function messagesUrl(): string
+    {
+        return 'https://fcm.googleapis.com/v1/projects/'.config('services.firebase.project_id').'/messages:send';
     }
 
     private function tokenIsInvalid(Response $response): bool

@@ -6,7 +6,6 @@ return [
     'timeout' => 20,
     'lookback_days' => 2,
     'timezone' => 'Africa/Johannesburg',
-    'sync_after' => '07:00',
     'logo_disk' => 'public',
     'class_times' => [
         '0530',

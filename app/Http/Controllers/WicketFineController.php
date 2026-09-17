@@ -21,6 +21,7 @@ class WicketFineController extends Controller
         $ids = $request->issuedToUserIds();
         $targets = User::query()->whereIn('id', $ids)->get()->keyBy('id');
         $conversions = 0;
+        $issued = [];
 
         foreach ($ids as $id) {
             $target = $targets->get($id);
@@ -38,9 +39,14 @@ class WicketFineController extends Controller
                 $request->integer('sips'),
             );
 
-            $notifyWicketFine->handle($wicketGroup, $issuer, $target, $result['fine']);
+            $issued[] = [
+                'target' => $target,
+                'fine' => $result['fine'],
+            ];
             $conversions += $result['conversions'];
         }
+
+        $notifyWicketFine->afterResponse($wicketGroup, $issuer, $issued);
 
         $status = $targets->count() === 1
             ? 'Fine given to '.$targets->first()->name.'.'

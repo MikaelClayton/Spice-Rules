@@ -23,11 +23,24 @@ class DashboardTest extends TestCase
             ->assertSee('Pick a board and see how the club is doing.')
             ->assertSee('Wickets')
             ->assertSee('Pub Golf')
+            ->assertSee('Spirdle')
             ->assertDontSee('GeoGuessr')
             ->assertDontSee('Fit-Ish')
             ->assertDontSee('Trivia')
             ->assertDontSee('Word Rush')
             ->assertDontSee('Admin');
+    }
+
+    public function test_authenticated_pages_include_the_divblox_support_widget(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js', false)
+            ->assertSee('https://web.divblox.app/widgets/dxSupportWidget.js', false)
+            ->assertSee('5d01f72d3089fff551c15982e277eeef', false);
     }
 
     public function test_geoguessr_tile_shows_when_the_profile_is_active(): void

@@ -30,6 +30,13 @@ class DashboardController extends Controller
         }
 
         $items[] = [
+            'route' => 'spirdle.index',
+            'name' => 'Spirdle',
+            'description' => 'Five letters, six tries, see who was fastest.',
+            'available' => true,
+        ];
+
+        $items[] = [
             'route' => 'wickets.index',
             'name' => 'Wickets',
             'description' => 'Hand out fines, then drink them down.',

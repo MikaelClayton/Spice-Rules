@@ -7,6 +7,7 @@ use App\Models\FitIshStudio;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Sleep;
@@ -147,78 +148,19 @@ class SyncFitIshCommandTest extends TestCase
         ]);
     }
 
-    public function test_scheduled_sync_does_not_call_lionheart_before_seven_sast(): void
+    public function test_fit_ish_sync_is_scheduled_at_eight_and_eighteen_sast(): void
     {
-        $this->travelTo(Carbon::parse('2026-09-15 06:59:00', 'Africa/Johannesburg'));
-        User::factory()->withFitIsh()->create();
+        Artisan::call('schedule:list');
 
-        Http::preventStrayRequests();
-        Http::fake();
+        $output = Artisan::output();
 
-        $this->artisan('fit-ish:sync')
-            ->expectsOutput('Fit-Ish sync waits until 07:00 SAST.')
-            ->assertSuccessful();
-
-        Http::assertNothingSent();
-        $this->assertDatabaseCount('outgoing_api_calls', 0);
-        $this->assertDatabaseCount('cron_runs', 0);
+        $this->assertStringContainsString('fit-ish:sync', $output);
+        $this->assertMatchesRegularExpression('/0\s+8,18\s+\*\s+\*\s+\*/', $output);
     }
 
-    public function test_scheduled_sync_stops_after_todays_data_is_fetched(): void
+    public function test_failed_sync_is_retried_on_the_next_run(): void
     {
-        $this->travelTo(Carbon::parse('2026-09-15 07:00:00', 'Africa/Johannesburg'));
-        Storage::fake('public');
-        $user = User::factory()->withFitIsh()->create();
-        $studio = FitIshStudio::factory()->faerieGlen()->create();
-        $user->fitIshStudios()->attach($studio);
-
-        Http::preventStrayRequests();
-        Http::fake([
-            'https://api.lionheart.f45.com/v3/profile/sessions/summary*' => Http::response(FitIshPayloads::summary()),
-            'https://api.lionheart.f45.com/v3/profile/sessions*' => Http::response(FitIshPayloads::sessionList()),
-            'https://api.lionheart.f45.com/v3/sessions/*' => Http::response(FitIshPayloads::session()),
-            'https://f45tv.cdn.f45.com/*' => Http::response('fake-png', 200, ['Content-Type' => 'image/png']),
-        ]);
-
-        $this->artisan('fit-ish:sync')->assertSuccessful();
-
-        $sent = Http::recorded()->count();
-        $this->assertGreaterThan(0, $sent);
-
-        $this->artisan('fit-ish:sync')
-            ->expectsOutput("Today's Fit-Ish data is already saved.")
-            ->assertSuccessful();
-
-        Http::assertSentCount($sent);
-    }
-
-    public function test_force_syncs_before_seven_sast(): void
-    {
-        $this->travelTo(Carbon::parse('2026-09-15 06:30:00', 'Africa/Johannesburg'));
-        Storage::fake('public');
-        $user = User::factory()->withFitIsh()->create();
-
-        Http::preventStrayRequests();
-        Http::fake([
-            'https://api.lionheart.f45.com/v3/profile/sessions/summary*' => Http::response(FitIshPayloads::summary()),
-            'https://api.lionheart.f45.com/v3/profile/sessions*' => Http::response(FitIshPayloads::sessionList()),
-            'https://api.lionheart.f45.com/v3/sessions/*' => Http::response(FitIshPayloads::session()),
-            'https://f45tv.cdn.f45.com/*' => Http::response('fake-png', 200, ['Content-Type' => 'image/png']),
-        ]);
-
-        $this->artisan('fit-ish:sync', ['--force' => true])
-            ->expectsOutput('Synced 1 Fit-Ish profile(s).')
-            ->assertSuccessful();
-
-        $this->assertDatabaseHas('fit_ish_sessions', [
-            'user_id' => $user->id,
-            'session_id' => '2026-09-15_0600:studio:ojb7:serial:1352',
-        ]);
-    }
-
-    public function test_failed_scheduled_sync_is_retried_after_seven_sast(): void
-    {
-        $this->travelTo(Carbon::parse('2026-09-15 07:30:00', 'Africa/Johannesburg'));
+        $this->travelTo(Carbon::parse('2026-09-15 08:00:00', 'Africa/Johannesburg'));
         Sleep::fake();
         User::factory()->withFitIsh()->create();
 

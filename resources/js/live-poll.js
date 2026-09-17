@@ -21,6 +21,7 @@ function bindLivePoll(root) {
 
     let revision = root.getAttribute('data-revision') || '';
     let inFlight = false;
+    const delay = Math.max(1500, Number(root.getAttribute('data-poll-ms')) || 4000);
 
     const poll = async () => {
         if (document.hidden || inFlight) {
@@ -34,7 +35,7 @@ function bindLivePoll(root) {
         inFlight = true;
 
         try {
-            const url = new URL(pollUrl, window.location.origin);
+            const url = pollEndpoint(pollUrl);
 
             if (revision) {
                 url.searchParams.set('revision', revision);
@@ -69,7 +70,34 @@ function bindLivePoll(root) {
         }
     };
 
-    window.setInterval(poll, 4000);
+    poll();
+    window.setInterval(poll, delay);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            poll();
+        }
+    });
+
+    const tabName = root.getAttribute('data-poll-tab');
+    const tab = tabName
+        ? root.querySelector(`[data-tab="${tabName}"]`) || root.parentElement?.querySelector(`[data-tab="${tabName}"]`)
+        : null;
+
+    tab?.addEventListener('change', () => {
+        if (tab.checked) {
+            poll();
+        }
+    });
+}
+
+function pollEndpoint(pollUrl) {
+    const url = new URL(pollUrl, window.location.origin);
+
+    if (url.origin === window.location.origin) {
+        return url;
+    }
+
+    return new URL(`${url.pathname}${url.search}${url.hash}`, window.location.origin);
 }
 
 function applyRegions(root, regions) {

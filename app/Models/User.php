@@ -141,6 +141,14 @@ class User extends Authenticatable
         return $this->hasMany(FitIshProfileSummary::class);
     }
 
+    /**
+     * @return HasMany<SpirdlePlay, $this>
+     */
+    public function spirdlePlays(): HasMany
+    {
+        return $this->hasMany(SpirdlePlay::class);
+    }
+
     public function allowsPubGolfLocation(): bool
     {
         return $this->allow_pub_golf_location === true;
