@@ -468,7 +468,7 @@
                                 autocomplete="off"
                                 placeholder="On the back of the puck"
                             >
-                            <p class="label text-base-content/60">Used to look up today's class if Lionheart does not return a session list.</p>
+                            <p class="text-sm text-base-content/70">Used to look up today's class if Lionheart does not return a session list.</p>
                         </fieldset>
 
                         <fieldset class="fieldset">

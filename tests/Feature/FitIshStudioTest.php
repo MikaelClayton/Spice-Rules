@@ -113,6 +113,35 @@ class FitIshStudioTest extends TestCase
         $this->assertTrue($user->fitIshStudios->contains($studio));
     }
 
+    public function test_fit_ish_serial_input_matches_other_profile_inputs(): void
+    {
+        $user = User::factory()->create();
+
+        $html = $this->actingAs($user)
+            ->get(route('profile.edit', ['tab' => 'fit-ish']))
+            ->assertOk()
+            ->assertSee('Lionheart user ID')
+            ->assertSee('Lionheart serial')
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/id="fit_ish_user_id"[^>]*\bclass="input w-full font-mono/',
+            $html,
+        );
+        $this->assertMatchesRegularExpression(
+            '/id="fit_ish_serial"[^>]*\bclass="input w-full font-mono/',
+            $html,
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/<p class="label[^"]*">Used to look up today\'s class/',
+            $html,
+        );
+        $this->assertMatchesRegularExpression(
+            '/<p class="text-sm text-base-content\/70">Used to look up today\'s class/',
+            $html,
+        );
+    }
+
     public function test_duplicate_lionheart_user_ids_are_rejected(): void
     {
         User::factory()->withFitIsh('13138221')->create();
