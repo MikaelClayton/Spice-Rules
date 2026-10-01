@@ -299,6 +299,16 @@ class PubGolfChatTest extends TestCase
         $this->post(route('pub-golf.chat.store', 1), ['body' => 'Hi'])->assertRedirect(route('login'));
     }
 
+    public function test_chat_poll_keeps_scroll_position_while_reading_history(): void
+    {
+        $source = file_get_contents(resource_path('js/pub-golf.js'));
+
+        $this->assertIsString($source);
+        $this->assertStringContainsString('const stickToBottom = scrollToEnd || isNearBottom(messages);', $source);
+        $this->assertStringContainsString('messages.scrollTop = previousScrollTop;', $source);
+        $this->assertStringNotContainsString('applyState(await response.json(), open);', $source);
+    }
+
     /**
      * @return array{0: User, 1: User, 2: PubGolfCrawl}
      */

@@ -1010,9 +1010,28 @@ function bindPubGolfChat(root) {
         'X-Requested-With': 'XMLHttpRequest',
     });
 
+    const messagesFingerprint = (payload) => {
+        const list = Array.isArray(payload.messages) ? payload.messages : [];
+
+        return [
+            Number(payload.latest_id) || 0,
+            list.length,
+            list.map((message) => message.id).join(','),
+        ].join(':');
+    };
+
+    const isNearBottom = (el, threshold = 80) => {
+        return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+    };
+
     const applyState = (next, scrollToEnd = false) => {
+        const shouldRenderMessages = scrollToEnd || messagesFingerprint(state) !== messagesFingerprint(next);
         state = next;
-        renderMessages(scrollToEnd);
+
+        if (shouldRenderMessages) {
+            renderMessages(scrollToEnd);
+        }
+
         renderBadges();
     };
 
@@ -1041,10 +1060,15 @@ function bindPubGolfChat(root) {
             return;
         }
 
+        const stickToBottom = scrollToEnd || isNearBottom(messages);
+        const previousScrollTop = messages.scrollTop;
+
         messages.replaceChildren(...state.messages.map((message) => messageNode(message, state.mentionable || [])));
 
-        if (scrollToEnd) {
+        if (stickToBottom) {
             messages.scrollTop = messages.scrollHeight;
+        } else {
+            messages.scrollTop = previousScrollTop;
         }
     };
 
@@ -1095,7 +1119,7 @@ function bindPubGolfChat(root) {
                 return;
             }
 
-            applyState(await response.json(), open);
+            applyState(await response.json());
             if (open) {
                 markRead();
             }
@@ -1124,7 +1148,7 @@ function bindPubGolfChat(root) {
                 return;
             }
 
-            applyState(await response.json(), open);
+            applyState(await response.json());
         } catch {
             return;
         }
