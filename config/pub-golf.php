@@ -26,4 +26,14 @@ return [
 
     'location_search_timeout' => 4,
 
+    /*
+    | Zone 2 burn estimate uses Compendium MET 7.0 (jogging, general) and body
+    | weight. Height is not part of the MET equation. Weight can be tweaked live
+    | on the recap; nothing is saved.
+    */
+    'calorie_burn' => [
+        'reference_weight_kg' => 70,
+        'zone_2_met' => 7.0,
+    ],
+
 ];

@@ -36,6 +36,14 @@ class SpirdleWord extends Model
         return $this->hasMany(SpirdlePuzzle::class);
     }
 
+    /**
+     * @return HasMany<SpirdlePractice, $this>
+     */
+    public function practices(): HasMany
+    {
+        return $this->hasMany(SpirdlePractice::class);
+    }
+
     #[Scope]
     protected function answers(Builder $query): Builder
     {

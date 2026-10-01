@@ -75,6 +75,49 @@
         </div>
     </div>
 
+    @if ($recap['calorie_burn'] !== null)
+        @php($burn = $recap['calorie_burn'])
+        <div
+            class="card mb-5 bg-base-100 shadow-md"
+            data-calorie-burn
+            data-calories="{{ $burn['calories'] }}"
+            data-met="{{ rtrim(rtrim(number_format($burn['met'], 1), '0'), '.') }}"
+        >
+            <div class="card-body gap-3 p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Calories</p>
+                        <p class="mt-1 text-3xl font-bold tabular-nums leading-none">{{ number_format($burn['calories']) }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Zone 2 run</p>
+                        <p class="mt-1 text-3xl font-bold tabular-nums leading-none">
+                            <span data-calorie-burn-minutes>{{ number_format($burn['minutes']) }}</span><span class="text-lg font-medium text-base-content/50">min</span>
+                        </p>
+                    </div>
+                </div>
+
+                <fieldset class="fieldset max-w-40 py-0">
+                    <label class="label" for="calorie-burn-weight">Weight (kg)</label>
+                    <input
+                        id="calorie-burn-weight"
+                        type="number"
+                        min="40"
+                        max="200"
+                        step="1"
+                        inputmode="numeric"
+                        class="input input-sm w-full min-w-0"
+                        value="{{ $burn['weight_kg'] }}"
+                        data-calorie-burn-weight
+                    >
+                </fieldset>
+
+                <p class="text-sm text-base-content/70" data-calorie-burn-summary>{{ $burn['summary'] }}</p>
+                <p class="font-mono text-xs text-base-content/50">Math: <span data-calorie-burn-equation>{{ $burn['equation'] }}</span></p>
+            </div>
+        </div>
+    @endif
+
     @if ($recap['stops'] !== [])
         <div class="mb-5">
             @include('pub-golf.stops', [

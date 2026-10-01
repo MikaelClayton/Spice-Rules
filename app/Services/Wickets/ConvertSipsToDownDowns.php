@@ -16,7 +16,7 @@ class ConvertSipsToDownDowns
         $converted = 0;
 
         while ($this->outstandingSips($group, $target) >= WicketFineType::DOWN_DOWN_AT) {
-            $this->applyOutstandingSips->handle($group, $target, WicketFineType::DOWN_DOWN_AT);
+            $breakdown = $this->applyOutstandingSips->breakdown($group, $target, WicketFineType::DOWN_DOWN_AT);
 
             WicketFine::query()->create([
                 'wicket_group_id' => $group->id,
@@ -25,6 +25,7 @@ class ConvertSipsToDownDowns
                 'reason' => WicketFine::ACCUMULATION_REASON,
                 'type' => WicketFineType::DownDown,
                 'sips_owed' => 0,
+                'accumulated_from' => $breakdown,
             ]);
 
             $converted++;

@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { setButtonLoading } from './button-loading';
 import { bindMapFullscreen } from './geoguessr-map-fullscreen';
+import { renderSVG } from './lib/uqr.mjs';
 
 bindDrinkPicker(document.querySelector('[data-pub-golf-board]'));
 bindDrinkConfirmations(document.querySelector('[data-pub-golf-board]'));
@@ -13,6 +14,272 @@ bindPubGolfChat(document.querySelector('[data-pub-golf-chat]'));
 bindPubGolfLocationSettings(document.querySelector('[data-pub-golf-location]'));
 bindPubGolfMaps(document.querySelectorAll('[data-pub-golf-map-wrap]'));
 renderRecap(document.querySelector('[data-pub-golf-recap]'));
+bindCalorieBurn(document.querySelector('[data-calorie-burn]'));
+bindJoinQr(document.querySelector('[data-join-qr]'));
+bindJoinScanner(document.querySelector('[data-join-scan]'));
+
+function bindJoinQr(dialog) {
+    if (!(dialog instanceof HTMLDialogElement)) {
+        return;
+    }
+
+    const openButtons = document.querySelectorAll('[data-join-qr-open]');
+    const target = dialog.querySelector('[data-join-qr-target]');
+    const joinUrl = dialog.getAttribute('data-join-url') || '';
+
+    if (!(target instanceof HTMLElement) || joinUrl === '') {
+        return;
+    }
+
+    const render = () => {
+        if (target.dataset.ready === '1') {
+            return;
+        }
+
+        try {
+            target.innerHTML = renderSVG(joinUrl, {
+                pixelSize: 6,
+                whiteColor: '#ffffff',
+                blackColor: '#111111',
+                border: 1,
+            });
+            const svg = target.querySelector('svg');
+
+            if (svg instanceof SVGElement) {
+                svg.setAttribute('class', 'h-full w-full');
+                svg.setAttribute('aria-label', 'QR code to join this crawl');
+            }
+
+            target.dataset.ready = '1';
+        } catch {
+            target.innerHTML = '<p class="text-sm text-error">Could not draw the QR code.</p>';
+        }
+    };
+
+    openButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            render();
+            dialog.showModal();
+        });
+    });
+}
+
+function bindJoinScanner(dialog) {
+    if (!(dialog instanceof HTMLDialogElement)) {
+        return;
+    }
+
+    const openButton = document.querySelector('[data-join-scan-open]');
+    const form = document.querySelector('[data-join-form]');
+    const codeInput = document.querySelector('[data-join-code-input]');
+    const video = dialog.querySelector('[data-join-scan-video]');
+    const status = dialog.querySelector('[data-join-scan-status]');
+    const closeButtons = dialog.querySelectorAll('[data-join-scan-close]');
+
+    if (
+        !(openButton instanceof HTMLButtonElement)
+        || !(form instanceof HTMLFormElement)
+        || !(codeInput instanceof HTMLInputElement)
+        || !(video instanceof HTMLVideoElement)
+        || !(status instanceof HTMLElement)
+    ) {
+        return;
+    }
+
+    let stream = null;
+    let detector = null;
+    let rafId = 0;
+    let handling = false;
+
+    const stop = () => {
+        handling = false;
+
+        if (rafId) {
+            window.cancelAnimationFrame(rafId);
+            rafId = 0;
+        }
+
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+            stream = null;
+        }
+
+        video.srcObject = null;
+    };
+
+    const setStatus = (message) => {
+        status.textContent = message;
+    };
+
+    const applyCode = (code) => {
+        if (handling) {
+            return;
+        }
+
+        handling = true;
+        codeInput.value = code;
+        stop();
+        dialog.close();
+        form.requestSubmit();
+    };
+
+    const tick = async () => {
+        if (!detector || video.readyState < 2 || handling) {
+            rafId = window.requestAnimationFrame(tick);
+
+            return;
+        }
+
+        try {
+            const codes = await detector.detect(video);
+
+            for (const code of codes) {
+                const joinCode = extractJoinCode(code.rawValue || '');
+
+                if (joinCode) {
+                    applyCode(joinCode);
+
+                    return;
+                }
+            }
+        } catch {
+            // Keep scanning; some frames fail while the camera settles.
+        }
+
+        rafId = window.requestAnimationFrame(tick);
+    };
+
+    const start = async () => {
+        stop();
+        setStatus('Starting camera…');
+        dialog.showModal();
+
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+            setStatus('Camera needs HTTPS on this device. Type the code instead.');
+
+            return;
+        }
+
+        if (typeof BarcodeDetector === 'undefined') {
+            setStatus('QR scanning is not supported in this browser. Type the code instead.');
+
+            return;
+        }
+
+        try {
+            detector = new BarcodeDetector({ formats: ['qr_code'] });
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: {
+                    facingMode: { ideal: 'environment' },
+                },
+            });
+            video.srcObject = stream;
+            await video.play();
+            setStatus('Point at the QR code…');
+            rafId = window.requestAnimationFrame(tick);
+        } catch {
+            stop();
+            setStatus('Could not open the camera. Check permissions, or type the code.');
+        }
+    };
+
+    openButton.addEventListener('click', () => {
+        void start();
+    });
+
+    closeButtons.forEach((button) => {
+        button.addEventListener('click', stop);
+    });
+
+    dialog.addEventListener('close', stop);
+}
+
+function extractJoinCode(raw) {
+    const text = String(raw || '').trim();
+
+    if (text === '') {
+        return null;
+    }
+
+    try {
+        const url = new URL(text);
+        const match = url.pathname.match(/\/pub-golf\/join\/([A-Za-z0-9]{6})\/?$/i);
+
+        if (match) {
+            return match[1].toUpperCase();
+        }
+    } catch {
+        // Not a URL — fall through to a bare code.
+    }
+
+    const pathMatch = text.match(/\/pub-golf\/join\/([A-Za-z0-9]{6})\/?/i);
+
+    if (pathMatch) {
+        return pathMatch[1].toUpperCase();
+    }
+
+    const cleaned = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+    return cleaned.length === 6 ? cleaned : null;
+}
+
+function bindCalorieBurn(root) {
+    if (!(root instanceof HTMLElement)) {
+        return;
+    }
+
+    const calories = Number(root.dataset.calories || 0);
+    const met = Number(root.dataset.met || 7);
+    const weightInput = root.querySelector('[data-calorie-burn-weight]');
+    const minutesNode = root.querySelector('[data-calorie-burn-minutes]');
+    const summaryNode = root.querySelector('[data-calorie-burn-summary]');
+    const equationNode = root.querySelector('[data-calorie-burn-equation]');
+
+    if (
+        !(weightInput instanceof HTMLInputElement)
+        || !(minutesNode instanceof HTMLElement)
+        || !(summaryNode instanceof HTMLElement)
+        || !(equationNode instanceof HTMLElement)
+        || !Number.isFinite(calories)
+        || calories < 1
+        || !Number.isFinite(met)
+        || met <= 0
+    ) {
+        return;
+    }
+
+    const update = () => {
+        const weightKg = clampNumber(Number(weightInput.value), 40, 200, 70);
+        const kcalPerMinute = Math.round(((met * weightKg) / 60) * 100) / 100;
+        const minutes = Math.max(1, Math.round(calories / kcalPerMinute));
+        const caloriesLabel = formatCount(calories);
+        const metLabel = formatMet(met);
+
+        minutesNode.textContent = formatCount(minutes);
+        summaryNode.textContent = `About ${formatCount(minutes)} minutes of zone 2 running at ${weightKg} kg (${metLabel} MET).`;
+        equationNode.textContent = `${caloriesLabel} ÷ (${metLabel} × ${weightKg} ÷ 60) = ${caloriesLabel} ÷ ${kcalPerMinute.toFixed(2)} ≈ ${minutes} minutes`;
+    };
+
+    weightInput.addEventListener('input', update);
+    weightInput.addEventListener('change', update);
+}
+
+function clampNumber(value, min, max, fallback) {
+    if (!Number.isFinite(value)) {
+        return fallback;
+    }
+
+    return Math.min(max, Math.max(min, value));
+}
+
+function formatCount(value) {
+    return Number(value).toLocaleString('en-US');
+}
+
+function formatMet(met) {
+    return String(Number(met.toFixed(1))).replace(/\.0$/, '');
+}
 
 function bindPubGolfMaps(wraps) {
     wraps.forEach((wrap) => {
@@ -190,6 +457,8 @@ function bindDrinkConfirmations(root) {
     let allowLocation = root.getAttribute('data-allow-location') === '1';
     let locationPromise = Promise.resolve();
     let locationPending = false;
+    const locationCacheMs = 30 * 60 * 1000;
+    const locationCacheKey = 'pub-golf-coords';
 
     const fillCoordinates = (latitude, longitude) => {
         if (latitudeNode instanceof HTMLInputElement) {
@@ -201,10 +470,56 @@ function bindDrinkConfirmations(root) {
         }
     };
 
+    const readCachedCoordinates = () => {
+        try {
+            const raw = window.sessionStorage.getItem(locationCacheKey);
+
+            if (!raw) {
+                return null;
+            }
+
+            const cached = JSON.parse(raw);
+
+            if (
+                typeof cached?.latitude !== 'number'
+                || typeof cached?.longitude !== 'number'
+                || typeof cached?.at !== 'number'
+                || Date.now() - cached.at > locationCacheMs
+            ) {
+                return null;
+            }
+
+            return cached;
+        } catch {
+            return null;
+        }
+    };
+
+    const writeCachedCoordinates = (latitude, longitude) => {
+        try {
+            window.sessionStorage.setItem(locationCacheKey, JSON.stringify({
+                latitude,
+                longitude,
+                at: Date.now(),
+            }));
+        } catch {
+            // Private mode can block sessionStorage.
+        }
+    };
+
+    const clearCachedCoordinates = () => {
+        try {
+            window.sessionStorage.removeItem(locationCacheKey);
+        } catch {
+            // Ignore storage failures.
+        }
+    };
+
     const rememberLocationDenied = () => {
         allowLocation = false;
         root.setAttribute('data-allow-location', '0');
         fillCoordinates('', '');
+        clearCachedCoordinates();
 
         if (denyUrl === '') {
             return;
@@ -225,7 +540,7 @@ function bindDrinkConfirmations(root) {
         }).catch(() => {});
     };
 
-    const captureLocation = () => {
+    const captureLocation = ({ force = false } = {}) => {
         if (!allowLocation || !navigator.geolocation) {
             locationPending = false;
             locationPromise = Promise.resolve();
@@ -234,11 +549,26 @@ function bindDrinkConfirmations(root) {
             return;
         }
 
+        if (!force) {
+            const cached = readCachedCoordinates();
+
+            if (cached) {
+                fillCoordinates(String(cached.latitude), String(cached.longitude));
+                locationPending = false;
+                locationPromise = Promise.resolve();
+
+                return;
+            }
+        }
+
         locationPending = true;
         locationPromise = new Promise((resolve) => {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    fillCoordinates(String(position.coords.latitude), String(position.coords.longitude));
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+                    fillCoordinates(String(latitude), String(longitude));
+                    writeCachedCoordinates(latitude, longitude);
                     locationPending = false;
                     resolve();
                 },
@@ -250,10 +580,12 @@ function bindDrinkConfirmations(root) {
                     locationPending = false;
                     resolve();
                 },
-                { enableHighAccuracy: false, timeout: 4000, maximumAge: 45000 },
+                { enableHighAccuracy: false, timeout: 4000, maximumAge: locationCacheMs },
             );
         });
     };
+
+    captureLocation();
 
     root.querySelectorAll('[data-confirm-log]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -264,9 +596,11 @@ function bindDrinkConfirmations(root) {
             const name = button.getAttribute('data-drink-label') || '';
             const key = button.getAttribute('data-drink-key') || '';
             const photo = button.getAttribute('data-drink-photo') || '';
+            const calories = button.getAttribute('data-drink-calories') || '';
             const nameNode = logModal.querySelector('[data-confirm-log-name]');
             const valueNode = logModal.querySelector('[data-confirm-log-value]');
             const photoNode = logModal.querySelector('[data-confirm-log-photo]');
+            const caloriesNode = logModal.querySelector('[data-log-calories]');
 
             if (nameNode instanceof HTMLElement) {
                 nameNode.textContent = name;
@@ -281,6 +615,10 @@ function bindDrinkConfirmations(root) {
                 photoNode.classList.toggle('hidden', photo === '');
             }
 
+            if (caloriesNode instanceof HTMLInputElement) {
+                caloriesNode.value = calories;
+            }
+
             captureLocation();
             logModal.showModal();
         });
@@ -290,7 +628,9 @@ function bindDrinkConfirmations(root) {
         logForm.addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const button = logForm.querySelector('button[type="submit"]');
+            const button = event.submitter instanceof HTMLButtonElement
+                ? event.submitter
+                : document.querySelector('button[type="submit"][form="pub-golf-log-form"]');
             setButtonLoading(button, true);
 
             if (locationPending) {
@@ -432,6 +772,13 @@ function bindPubGolfLocationSettings(root) {
         if (!toggle.checked) {
             try {
                 await saveFlag(false);
+
+                try {
+                    window.sessionStorage.removeItem('pub-golf-coords');
+                } catch {
+                    // Ignore storage failures.
+                }
+
                 setStatus('Location is off. We will not ask your phone.');
             } catch {
                 toggle.checked = true;
@@ -458,7 +805,7 @@ function bindPubGolfLocationSettings(root) {
             }
 
             await saveFlag(true);
-            setStatus('Location is on. A pin is only taken when you log a drink.');
+            setStatus('Location is on. Choose “Allow” on your phone so we only ask once, then reuse the pin while you log drinks.');
         } catch (error) {
             toggle.checked = false;
 

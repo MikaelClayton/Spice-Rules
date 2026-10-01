@@ -72,9 +72,12 @@ export function renderFitIshCharts(root) {
                     ? barConfig(payload, true)
                     : null;
 
-        if (config) {
-            new Chart(canvas, config);
+        if (!config) {
+            return;
         }
+
+        const chart = new Chart(canvas, config);
+        bindHtmlLegend(node, chart);
     });
 }
 
@@ -150,12 +153,7 @@ function barConfig(payload, percent) {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'bottom',
-                    labels: {
-                        boxWidth: 10,
-                        color: theme.text,
-                        padding: 10,
-                    },
+                    display: false,
                 },
             },
             scales: {
@@ -184,6 +182,39 @@ function barConfig(payload, percent) {
             },
         },
     };
+}
+
+function bindHtmlLegend(node, chart) {
+    const legend = node.closest('.card-body')?.querySelector('[data-fit-ish-chart-legend]');
+
+    if (!(legend instanceof HTMLElement)) {
+        return;
+    }
+
+    legend.querySelectorAll('[data-dataset-index]').forEach((button) => {
+        if (!(button instanceof HTMLButtonElement)) {
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            const index = Number(button.dataset.datasetIndex);
+
+            if (!Number.isInteger(index)) {
+                return;
+            }
+
+            const visible = !chart.isDatasetVisible(index);
+            chart.setDatasetVisibility(index, visible);
+            chart.update();
+            syncLegendButton(button, visible);
+        });
+    });
+}
+
+function syncLegendButton(button, visible) {
+    button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    button.classList.toggle('opacity-40', !visible);
+    button.classList.toggle('line-through', !visible);
 }
 
 function parseJson(raw) {

@@ -4,7 +4,6 @@
         'title' => 'Zone battle',
         'caption' => 'Each colour is a person',
         'payload' => $zoneRadar,
-        'showLegend' => true,
     ])
 @endif
 

@@ -11,15 +11,27 @@ class ImportSpirdleWords
     public const CHUNK_SIZE = 500;
 
     /**
-     * @return array{synced: int, answers: int, guesses: int}
+     * @return array{synced: int, answers: int, guesses: int, demoted: int}
      */
-    public function handle(?string $answersPath = null, ?string $guessesPath = null, bool $writePublicList = true): array
-    {
+    public function handle(
+        ?string $answersPath = null,
+        ?string $guessesPath = null,
+        bool $writePublicList = true,
+        ?string $properNounsPath = null,
+        ?string $offensivePath = null,
+    ): array {
         $answers = $this->wordsFrom($answersPath ?? database_path('data/spirdle/answers.txt'));
         $guesses = $this->wordsFrom($guessesPath ?? database_path('data/spirdle/guesses.txt'));
+        $blocked = $this->wordsFrom($properNounsPath ?? database_path('data/spirdle/proper-nouns.txt'))
+            + $this->wordsFrom($offensivePath ?? database_path('data/spirdle/offensive.txt'));
 
         foreach ($answers as $word) {
             $guesses[$word] = $word;
+        }
+
+        foreach ($blocked as $word) {
+            $guesses[$word] = $word;
+            unset($answers[$word]);
         }
 
         $rows = [];
@@ -46,6 +58,7 @@ class ImportSpirdleWords
             'synced' => count($rows),
             'answers' => count($answers),
             'guesses' => count($guesses),
+            'demoted' => count($blocked),
         ];
     }
 

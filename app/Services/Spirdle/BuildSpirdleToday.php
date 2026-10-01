@@ -12,6 +12,7 @@ class BuildSpirdleToday
     public function __construct(
         private readonly EnsureTodaysSpirdlePuzzle $ensureTodaysSpirdlePuzzle,
         private readonly RankSpirdlePlays $ranker,
+        private readonly BuildSpirdlePracticeStats $practice,
     ) {}
 
     /**
@@ -24,7 +25,12 @@ class BuildSpirdleToday
      *     fewestGuesses: int|null,
      *     fastestMs: int|null,
      *     fewestInvalid: int|null,
-     *     revision: string
+     *     revision: string,
+     *     practice: array{
+     *         hasData: bool,
+     *         inProgress: bool,
+     *         stats: array{played: int, wins: int, winPercent: int, averageGuesses: float|null}
+     *     }
      * }
      */
     public function handle(?User $viewer = null): array
@@ -57,6 +63,7 @@ class BuildSpirdleToday
             'fastestMs' => $winners->count() >= 2 ? $winners->min('duration_ms') : null,
             'fewestInvalid' => $winners->count() >= 2 ? $winners->min('invalid_word_count') : null,
             'revision' => $this->revision($puzzle),
+            'practice' => $this->practice->handle($viewer),
         ];
     }
 

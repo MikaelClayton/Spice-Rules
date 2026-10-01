@@ -37,6 +37,8 @@ class SpirdleBoardTest extends TestCase
             ->assertOk()
             ->assertSee('Spirdle')
             ->assertSee('Play now')
+            ->assertSee('Practice')
+            ->assertSee('No practices finished yet.')
             ->assertSeeInOrder(['Today', 'Weekly', 'Challenges', 'You'])
             ->assertSee('Ada')
             ->assertSee('3 guesses')

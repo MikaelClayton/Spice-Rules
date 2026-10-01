@@ -20,7 +20,10 @@ class BuildWicketStandings
      *     specials: Collection<int, array{type: WicketFineType, count: int|string, at_least: bool}>,
      *     specialCount: int,
      *     fines: Collection<int, WicketFine>,
-     *     finesHidden: bool
+     *     finesHidden: bool,
+     *     severity: array{int, int, int, int},
+     *     showAccumulationBreakdown: bool,
+     *     rank: int|null
      * }>
      */
     public function handle(WicketGroup $group, User $viewer, Collection $outstanding): Collection
@@ -81,12 +84,18 @@ class BuildWicketStandings
                     'finesHidden' => false,
                 ];
             })
+            ->map(fn (array $row): array => [
+                ...$row,
+                'severity' => $this->severity($row),
+                'showAccumulationBreakdown' => ! $fogOthers,
+            ])
             ->sortBy([
-                fn (array $left, array $right): int => $this->sortValue($right) <=> $this->sortValue($left),
+                fn (array $left, array $right): int => $right['severity'] <=> $left['severity'],
                 fn (array $left, array $right): int => $left['user']->name <=> $right['user']->name,
                 fn (array $left, array $right): int => $left['user']->id <=> $right['user']->id,
             ])
-            ->values();
+            ->values()
+            ->pipe(fn (Collection $rows): Collection => $this->assignRanks($rows));
     }
 
     /**
@@ -147,12 +156,48 @@ class BuildWicketStandings
     }
 
     /**
-     * @param  array{sips: int|string, specialCount: int}  $row
+     * Worst first: shoeys, then funnels, then down downs, then sips.
+     *
+     * @param  array{sips: int|string, fines: Collection<int, WicketFine>}  $row
+     * @return array{int, int, int, int}
      */
-    private function sortValue(array $row): int
+    private function severity(array $row): array
     {
-        $sips = is_int($row['sips']) ? $row['sips'] : 0;
+        $counts = $row['fines']->countBy(fn (WicketFine $fine): string => $fine->type->value);
 
-        return $sips * 100 + $row['specialCount'];
+        return [
+            (int) $counts->get(WicketFineType::Shoey->value, 0),
+            (int) $counts->get(WicketFineType::Funnel->value, 0),
+            (int) $counts->get(WicketFineType::DownDown->value, 0),
+            is_int($row['sips']) ? $row['sips'] : 0,
+        ];
+    }
+
+    /**
+     * Tied players share a rank. Players whose fines are hidden are not ranked.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function assignRanks(Collection $rows): Collection
+    {
+        $position = 0;
+        $rank = 0;
+        $previous = null;
+
+        return $rows->map(function (array $row) use (&$position, &$rank, &$previous): array {
+            if ($row['finesHidden']) {
+                return [...$row, 'rank' => null];
+            }
+
+            $position++;
+
+            if ($row['severity'] !== $previous) {
+                $rank = $position;
+                $previous = $row['severity'];
+            }
+
+            return [...$row, 'rank' => $rank];
+        });
     }
 }

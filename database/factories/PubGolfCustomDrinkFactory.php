@@ -21,6 +21,7 @@ class PubGolfCustomDrinkFactory extends Factory
             'user_id' => User::factory(),
             'name' => fake()->unique()->words(2, true).' special',
             'category' => PubGolfDrinkCategory::Beer,
+            'calories' => null,
             'photo_path' => null,
             'removed_at' => null,
         ];

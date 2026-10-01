@@ -196,7 +196,8 @@ class FitIshBoardTest extends TestCase
             ->assertSee('Total calories')
             ->assertSee('Monthly mix')
             ->assertSee('Abacus')
-            ->assertSee('data-fit-ish-chart="monthly"', false);
+            ->assertSee('data-fit-ish-chart="monthly"', false)
+            ->assertSee('data-fit-ish-chart-legend', false);
     }
 
     public function test_you_tab_escapes_workout_names_in_the_table(): void
@@ -256,6 +257,8 @@ class FitIshBoardTest extends TestCase
             ->assertOk()
             ->assertSee('Zone battle')
             ->assertSee('data-fit-ish-chart="radar"', false)
+            ->assertSee('data-fit-ish-chart-legend', false)
+            ->assertSee('data-dataset-index="0"', false)
             ->assertSee('Ada')
             ->assertSee('Ben');
     }

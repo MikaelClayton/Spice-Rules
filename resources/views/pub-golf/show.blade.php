@@ -12,7 +12,11 @@
     >
         <div class="mb-4 flex items-center justify-between gap-2">
             <a href="{{ route('pub-golf.index') }}" class="btn btn-ghost btn-sm -ml-2 shrink-0">← Back</a>
-            <button type="button" class="btn btn-ghost btn-sm min-w-0 font-mono tracking-widest" data-copy="{{ $crawl->join_code }}">
+            <button
+                type="button"
+                class="btn btn-ghost btn-sm min-w-0 font-mono tracking-widest"
+                data-join-qr-open
+            >
                 Code {{ $crawl->join_code }}
             </button>
         </div>
@@ -80,6 +84,7 @@
                                     data-confirm-log
                                     data-drink-key="{{ $board['last_listed']->key }}"
                                     data-drink-label="{{ $board['last_listed']->label }}"
+                                    @if ($board['last_listed']->calories !== null) data-drink-calories="{{ $board['last_listed']->calories }}" @endif
                                     @if ($board['last_listed']->imageUrl) data-drink-photo="{{ $board['last_listed']->imageUrl }}" @endif
                                 >
                                     Same again
@@ -103,6 +108,7 @@
                                     data-confirm-log
                                     data-drink-key="{{ $favorite->key }}"
                                     data-drink-label="{{ $favorite->label }}"
+                                    @if ($favorite->calories !== null) data-drink-calories="{{ $favorite->calories }}" @endif
                                     @if ($favorite->imageUrl) data-drink-photo="{{ $favorite->imageUrl }}" @endif
                                 >
                                     {{ $favorite->category->emoji() }} {{ $favorite->label }}
@@ -161,6 +167,7 @@
                                             data-confirm-log
                                             data-drink-key="{{ $drink->key }}"
                                             data-drink-label="{{ $drink->label }}"
+                                            @if ($drink->calories !== null) data-drink-calories="{{ $drink->calories }}" @endif
                                             @if ($drink->imageUrl) data-drink-photo="{{ $drink->imageUrl }}" @endif
                                         >
                                             @if ($drink->imageUrl)
@@ -193,7 +200,7 @@
                         @csrf
                         <p class="font-semibold">Don't see your drink?</p>
                         <p class="text-sm text-base-content/70">Add it here with a photo and a category so everyone on this crawl can log it.</p>
-                        <div class="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                        <div class="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_7.5rem]">
                             <fieldset class="fieldset min-w-0 py-0">
                                 <label class="label" for="custom-drink-name">Drink name</label>
                                 <input
@@ -222,6 +229,21 @@
                                         </option>
                                     @endforeach
                                 </select>
+                            </fieldset>
+                            <fieldset class="fieldset min-w-0 py-0">
+                                <label class="label" for="custom-drink-calories">Calories</label>
+                                <input
+                                    id="custom-drink-calories"
+                                    type="number"
+                                    name="calories"
+                                    value="{{ old('calories') }}"
+                                    min="0"
+                                    max="5000"
+                                    step="1"
+                                    inputmode="numeric"
+                                    class="input w-full min-w-0 @error('calories') input-error @enderror"
+                                    placeholder="Optional"
+                                >
                             </fieldset>
                         </div>
                         <fieldset class="fieldset min-w-0 py-0">
@@ -346,17 +368,65 @@
                 <p class="text-base-content/70">
                     Add <span class="font-semibold text-base-content" data-confirm-log-name></span> to your night.
                 </p>
+                <form
+                    id="pub-golf-log-form"
+                    method="POST"
+                    action="{{ route('pub-golf.drinks.store', $crawl) }}"
+                    class="mt-4"
+                    data-log-form
+                    data-ajax
+                >
+                    @csrf
+                    <input type="hidden" name="drink" value="" data-confirm-log-value>
+                    <input type="hidden" name="latitude" value="" data-log-latitude>
+                    <input type="hidden" name="longitude" value="" data-log-longitude>
+                    <fieldset class="fieldset">
+                        <label class="label" for="log-calories">Calories (optional)</label>
+                        <input
+                            id="log-calories"
+                            type="number"
+                            name="calories"
+                            min="0"
+                            max="5000"
+                            step="1"
+                            inputmode="numeric"
+                            class="input w-full"
+                            placeholder="e.g. 180"
+                            data-log-calories
+                        >
+                    </fieldset>
+                </form>
             </div>
             <div class="modal-action">
                 <form method="dialog">
                     <button class="btn btn-ghost">Cancel</button>
                 </form>
-                <form method="POST" action="{{ route('pub-golf.drinks.store', $crawl) }}" data-log-form data-ajax>
-                    @csrf
-                    <input type="hidden" name="drink" value="" data-confirm-log-value>
-                    <input type="hidden" name="latitude" value="" data-log-latitude>
-                    <input type="hidden" name="longitude" value="" data-log-longitude>
-                    <button type="submit" class="btn btn-primary">Log it</button>
+                <button type="submit" form="pub-golf-log-form" class="btn btn-primary">Log it</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <dialog
+        id="pub-golf-join-qr"
+        class="modal"
+        data-join-qr
+        data-join-url="{{ route('pub-golf.joins.show', $crawl->join_code) }}"
+        data-join-code="{{ $crawl->join_code }}"
+    >
+        <div class="modal-box max-w-sm text-center">
+            <h3 class="text-lg font-bold">Join this crawl</h3>
+            <p class="mt-1 text-sm text-base-content/70">Friends scan this in Pub Golf, or type the code.</p>
+            <div class="mx-auto mt-4 flex h-52 w-52 items-center justify-center overflow-hidden rounded-2xl bg-white p-3" data-join-qr-target>
+                <p class="text-sm text-base-content/50">Loading QR…</p>
+            </div>
+            <p class="mt-4 font-mono text-xl tracking-[0.35em]">{{ $crawl->join_code }}</p>
+            <div class="modal-action justify-center">
+                <button type="button" class="btn btn-ghost" data-copy="{{ $crawl->join_code }}">Copy code</button>
+                <form method="dialog">
+                    <button class="btn btn-primary">Done</button>
                 </form>
             </div>
         </div>

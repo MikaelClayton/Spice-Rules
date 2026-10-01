@@ -12,8 +12,13 @@ class AddPubGolfCustomDrink
 {
     public function __construct(private StorePubGolfDrinkPhoto $storePubGolfDrinkPhoto) {}
 
-    public function handle(User $user, string $name, PubGolfDrinkCategory $category, UploadedFile $photo): PubGolfCustomDrink
-    {
+    public function handle(
+        User $user,
+        string $name,
+        PubGolfDrinkCategory $category,
+        UploadedFile $photo,
+        ?int $calories = null,
+    ): PubGolfCustomDrink {
         $name = trim($name);
 
         if ($name === '') {
@@ -37,6 +42,7 @@ class AddPubGolfCustomDrink
             'user_id' => $user->id,
             'name' => $name,
             'category' => $category,
+            'calories' => $calories,
             'photo_path' => $this->storePubGolfDrinkPhoto->handle($photo),
         ]);
     }

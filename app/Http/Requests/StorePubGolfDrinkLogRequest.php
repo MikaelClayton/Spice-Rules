@@ -34,6 +34,13 @@ class StorePubGolfDrinkLogRequest extends FormRequest
         return is_numeric($longitude) ? (float) $longitude : null;
     }
 
+    public function calories(): ?int
+    {
+        $calories = $this->validated('calories');
+
+        return is_numeric($calories) ? (int) $calories : null;
+    }
+
     protected function prepareForValidation(): void
     {
         $drinkId = PubGolfListedDrink::customId((string) $this->input('drink'));
@@ -43,10 +50,12 @@ class StorePubGolfDrinkLogRequest extends FormRequest
         }
 
         [$latitude, $longitude] = $this->normalizedCoordinates();
+        $calories = $this->input('calories');
 
         $this->merge([
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'calories' => is_numeric($calories) ? (int) $calories : null,
         ]);
     }
 
@@ -59,6 +68,7 @@ class StorePubGolfDrinkLogRequest extends FormRequest
             'drink' => ['required', 'integer', Rule::exists('pub_golf_custom_drinks', 'id')],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'calories' => ['nullable', 'integer', 'min:0', 'max:5000'],
         ];
     }
 
@@ -71,6 +81,9 @@ class StorePubGolfDrinkLogRequest extends FormRequest
             'drink.required' => 'Pick a drink.',
             'drink.integer' => 'Pick a drink from the list.',
             'drink.exists' => 'Pick a drink from the list.',
+            'calories.integer' => 'Calories must be a whole number.',
+            'calories.min' => 'Calories cannot be negative.',
+            'calories.max' => 'Calories must be 5000 or less.',
         ];
     }
 

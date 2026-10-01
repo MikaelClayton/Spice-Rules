@@ -11,6 +11,21 @@ export function setButtonLoading(button, isLoading) {
     }
 
     const spinner = button.querySelector('[data-btn-spinner]');
+    const label = button.querySelector('[data-btn-label]');
+    const loadingText = button.dataset.loadingText;
+
+    button.form?.querySelectorAll('[data-loading-message]').forEach((message) => {
+        message.hidden = !isLoading;
+    });
+
+    if (label && loadingText) {
+        if (isLoading) {
+            label.dataset.idleText ??= label.textContent;
+            label.textContent = loadingText;
+        } else if (label.dataset.idleText !== undefined) {
+            label.textContent = label.dataset.idleText;
+        }
+    }
 
     if (isLoading) {
         if (spinner) {

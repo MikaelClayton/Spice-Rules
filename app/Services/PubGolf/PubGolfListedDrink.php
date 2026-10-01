@@ -20,6 +20,7 @@ final readonly class PubGolfListedDrink
         public bool $isListed = true,
         public ?int $createdByUserId = null,
         public ?int $customId = null,
+        public ?int $calories = null,
     ) {}
 
     public static function fromCustom(PubGolfCustomDrink $drink): self
@@ -34,6 +35,7 @@ final readonly class PubGolfListedDrink
             isListed: $drink->removed_at === null,
             createdByUserId: $drink->user_id,
             customId: $drink->id,
+            calories: $drink->calories,
         );
     }
 

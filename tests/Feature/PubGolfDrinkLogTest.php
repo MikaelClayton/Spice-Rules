@@ -43,13 +43,110 @@ class PubGolfDrinkLogTest extends TestCase
             'location' => null,
             'latitude' => null,
             'longitude' => null,
+            'calories' => null,
         ]);
 
         $this->actingAs($user)
             ->get(route('pub-golf.show', $crawl))
             ->assertOk()
             ->assertSee('Same again')
-            ->assertSee('Black Label');
+            ->assertSee('Black Label')
+            ->assertSee('Calories (optional)');
+    }
+
+    public function test_players_can_log_optional_calories_with_a_drink(): void
+    {
+        $user = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create(['user_id' => $user->id]);
+        $drink = PubGolfCustomDrink::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Black Label',
+            'category' => PubGolfDrinkCategory::Beer,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('pub-golf.drinks.store', $crawl), [
+                'drink' => $drink->id,
+                'calories' => '180',
+            ])
+            ->assertRedirect(route('pub-golf.show', $crawl));
+
+        $this->assertDatabaseHas('pub_golf_drink_logs', [
+            'drink_id' => $drink->id,
+            'calories' => 180,
+        ]);
+
+        $this->assertDatabaseHas('pub_golf_custom_drinks', [
+            'id' => $drink->id,
+            'calories' => 180,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('pub-golf.show', $crawl))
+            ->assertOk()
+            ->assertSee('data-drink-calories="180"', false);
+
+        $this->actingAs($user)
+            ->post(route('pub-golf.leave.store', $crawl))
+            ->assertRedirect(route('pub-golf.recap.show', $crawl));
+
+        $this->actingAs($user)
+            ->get(route('pub-golf.recap.show', $crawl))
+            ->assertOk()
+            ->assertSee('Calories')
+            ->assertSee('Zone 2 run')
+            ->assertSee('data-calorie-burn', false)
+            ->assertSee('data-calorie-burn-weight', false)
+            ->assertDontSee('data-calorie-burn-age', false)
+            ->assertDontSee('data-calorie-burn-met', false)
+            ->assertSee('height does not', false);
+    }
+
+    public function test_logging_without_calories_keeps_the_drinks_saved_calories(): void
+    {
+        $user = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create(['user_id' => $user->id]);
+        $drink = PubGolfCustomDrink::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Black Label',
+            'calories' => 180,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('pub-golf.drinks.store', $crawl), [
+                'drink' => $drink->id,
+            ])
+            ->assertRedirect(route('pub-golf.show', $crawl));
+
+        $this->assertDatabaseHas('pub_golf_drink_logs', [
+            'drink_id' => $drink->id,
+            'calories' => null,
+        ]);
+        $this->assertDatabaseHas('pub_golf_custom_drinks', [
+            'id' => $drink->id,
+            'calories' => 180,
+        ]);
+    }
+
+    public function test_calorie_input_must_be_a_reasonable_whole_number(): void
+    {
+        $user = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create(['user_id' => $user->id]);
+        $drink = PubGolfCustomDrink::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Black Label',
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('pub-golf.show', $crawl))
+            ->post(route('pub-golf.drinks.store', $crawl), [
+                'drink' => $drink->id,
+                'calories' => '9001',
+            ])
+            ->assertRedirect(route('pub-golf.show', $crawl))
+            ->assertSessionHasErrors(['calories' => 'Calories must be 5000 or less.']);
+
+        $this->assertDatabaseCount('pub_golf_drink_logs', 0);
     }
 
     public function test_json_drink_logs_return_the_board_url(): void

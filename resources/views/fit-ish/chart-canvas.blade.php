@@ -15,19 +15,24 @@
                     <script type="application/json">@json($payload)</script>
                 </div>
             </div>
-            @if ($showLegend ?? false)
-                <ul class="flex flex-wrap justify-center gap-x-3 gap-y-1.5">
-                    @foreach ($payload['datasets'] as $dataset)
-                        <li class="flex min-w-0 items-center gap-1.5 text-xs">
+            <ul class="flex flex-wrap justify-center gap-x-2 gap-y-1.5" data-fit-ish-chart-legend>
+                @foreach ($payload['datasets'] as $dataset)
+                    <li>
+                        <button
+                            type="button"
+                            data-dataset-index="{{ $loop->index }}"
+                            aria-pressed="true"
+                            class="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs transition-opacity hover:bg-base-200"
+                        >
                             <span
                                 class="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                                 style="background: {{ $dataset['color'] }}"
                             ></span>
                             <span class="leading-snug">{{ $dataset['label'] }}</span>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
+                        </button>
+                    </li>
+                @endforeach
+            </ul>
         </div>
     </section>
 @endif

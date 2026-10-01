@@ -20,6 +20,7 @@ class PubGolfCrawlTest extends TestCase
     {
         $this->get(route('pub-golf.index'))->assertRedirect(route('login'));
         $this->post(route('pub-golf.store'), ['name' => 'Friday'])->assertRedirect(route('login'));
+        $this->get(route('pub-golf.joins.show', 'ABCDEF'))->assertRedirect(route('login'));
         $this->post(route('pub-golf.joins.store'), ['code' => 'ABCDEF'])->assertRedirect(route('login'));
         $this->post(route('pub-golf.rejoins.store', 1))->assertRedirect(route('login'));
         $this->assertDatabaseCount('pub_golf_crawls', 0);
@@ -35,6 +36,7 @@ class PubGolfCrawlTest extends TestCase
             ->assertSee('Pub Golf')
             ->assertSee('Start a crawl')
             ->assertSee('Join a crawl')
+            ->assertSee('Scan QR')
             ->assertSee('Recaps land here after you call it')
             ->assertDontSee('data-pub-golf-map', false);
     }
@@ -148,6 +150,44 @@ class PubGolfCrawlTest extends TestCase
             ->assertSee('Warming up')
             ->assertSee('Legendary')
             ->assertSee('role="meter"', false);
+    }
+
+    public function test_friends_can_join_an_open_crawl_by_scanning_the_join_link(): void
+    {
+        $host = User::factory()->create();
+        $friend = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create([
+            'user_id' => $host->id,
+            'join_code' => 'QRJOIN',
+        ]);
+
+        $this->actingAs($host)
+            ->get(route('pub-golf.show', $crawl))
+            ->assertOk()
+            ->assertSee('data-join-qr', false)
+            ->assertSee(route('pub-golf.joins.show', 'QRJOIN'), false);
+
+        $this->actingAs($friend)
+            ->get(route('pub-golf.joins.show', 'qrjoin'))
+            ->assertRedirect(route('pub-golf.show', $crawl))
+            ->assertSessionHas('status', 'You are on the crawl.');
+
+        $this->assertDatabaseHas('pub_golf_participants', [
+            'pub_golf_crawl_id' => $crawl->id,
+            'user_id' => $friend->id,
+            'left_at' => null,
+        ]);
+    }
+
+    public function test_an_unknown_join_link_is_rejected(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from(route('pub-golf.index'))
+            ->get(route('pub-golf.joins.show', 'NOPE12'))
+            ->assertRedirect(route('pub-golf.index'))
+            ->assertSessionHasErrors(['code' => 'No crawl uses that code.']);
     }
 
     public function test_an_unknown_join_code_is_rejected(): void

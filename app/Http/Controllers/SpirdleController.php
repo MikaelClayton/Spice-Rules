@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Spirdle\BuildSpirdleChallenges;
+use App\Services\Spirdle\BuildSpirdlePracticeStats;
 use App\Services\Spirdle\BuildSpirdleToday;
 use App\Services\Spirdle\BuildSpirdleWeekly;
 use App\Services\Spirdle\BuildSpirdleYou;
@@ -15,6 +16,7 @@ class SpirdleController extends Controller
         private readonly BuildSpirdleToday $today,
         private readonly BuildSpirdleWeekly $weekly,
         private readonly BuildSpirdleYou $you,
+        private readonly BuildSpirdlePracticeStats $practice,
         private readonly BuildSpirdleChallenges $challenges,
     ) {}
 
@@ -27,6 +29,7 @@ class SpirdleController extends Controller
             'activeTab' => $this->activeTab(),
             'weekly' => $this->weekly->payload($request->string('week')->toString() ?: null),
             'you' => $this->you->handle($user),
+            'practiceStats' => $this->practice->handle($user),
             'dailies' => $this->challenges->handle($user),
         ]);
     }

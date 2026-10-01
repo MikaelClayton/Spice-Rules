@@ -118,7 +118,6 @@
             'title' => 'Zones by workout',
             'caption' => 'Your average time in each heart-rate zone, by type',
             'payload' => $you['typeRadar'],
-            'showLegend' => true,
         ])
         @include('fit-ish.chart-canvas', [
             'type' => 'zone-stacks',

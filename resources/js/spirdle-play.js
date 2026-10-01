@@ -12,6 +12,7 @@ function bindSpirdlePlay(playRoot, initial) {
     const resumeUrl = playRoot.getAttribute('data-resume-url') || '';
     const wordsUrl = playRoot.getAttribute('data-words-url') || '';
     const boardUrl = playRoot.getAttribute('data-board-url') || '';
+    const replayUrl = playRoot.getAttribute('data-replay-url') || '';
     const tiles = [...playRoot.querySelectorAll('[data-tile]')];
     const rows = [...playRoot.querySelectorAll('[data-row]')];
     const keys = new Map(
@@ -19,6 +20,8 @@ function bindSpirdlePlay(playRoot, initial) {
     );
     const toastHost = playRoot.querySelector('[data-spirdle-toast]');
     const clock = document.querySelector('[data-spirdle-clock]');
+    const practiceEnd = playRoot.querySelector('[data-spirdle-practice-end]');
+    const replayButton = playRoot.querySelector('[data-spirdle-replay]');
     const state = {
         guesses: Array.isArray(initial.guesses) ? initial.guesses : [],
         row: Array.isArray(initial.guesses) ? initial.guesses.length : 0,
@@ -61,6 +64,10 @@ function bindSpirdlePlay(playRoot, initial) {
         return;
     }
 
+    if (state.finished && replayUrl && practiceEnd instanceof HTMLElement) {
+        showPracticeEnd(initial);
+    }
+
     playRoot.addEventListener('click', (event) => {
         const button = event.target instanceof Element ? event.target.closest('[data-key]') : null;
         const key = button?.getAttribute('data-key');
@@ -94,7 +101,15 @@ function bindSpirdlePlay(playRoot, initial) {
     });
 
     function handleKey(key) {
-        if (state.locked || state.finished) {
+        if (state.finished) {
+            if (key === 'Enter' && replayUrl) {
+                startPracticeAgain();
+            }
+
+            return;
+        }
+
+        if (state.locked) {
             return;
         }
 
@@ -110,6 +125,17 @@ function bindSpirdlePlay(playRoot, initial) {
 
         if (key.length === 1 && key >= 'a' && key <= 'z') {
             typeLetter(key);
+        }
+    }
+
+    function startPracticeAgain() {
+        if (replayButton instanceof HTMLAnchorElement && replayButton.href) {
+            replayButton.click();
+            return;
+        }
+
+        if (replayUrl) {
+            window.location.href = replayUrl;
         }
     }
 
@@ -349,9 +375,36 @@ function bindSpirdlePlay(playRoot, initial) {
             burstFinish(false, board);
         }
 
+        const replay = playRoot.getAttribute('data-replay-url');
+        const endPanel = playRoot.querySelector('[data-spirdle-practice-end]');
+
+        if (replay && endPanel instanceof HTMLElement) {
+            showPracticeEnd(play);
+            return;
+        }
+
         window.setTimeout(() => {
             window.location.href = boardUrl;
         }, 1500);
+    }
+
+    function showPracticeEnd(play) {
+        const endPanel = practiceEnd instanceof HTMLElement
+            ? practiceEnd
+            : playRoot.querySelector('[data-spirdle-practice-end]');
+        const result = playRoot.querySelector('[data-spirdle-result]');
+
+        if (!(endPanel instanceof HTMLElement)) {
+            return;
+        }
+
+        if (result instanceof HTMLElement) {
+            result.textContent = play.won
+                ? 'Nice.'
+                : String(play.solution || '').toUpperCase();
+        }
+
+        endPanel.hidden = false;
     }
 
     function shake(row) {

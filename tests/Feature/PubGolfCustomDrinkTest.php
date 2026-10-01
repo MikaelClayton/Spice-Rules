@@ -37,6 +37,7 @@ class PubGolfCustomDrinkTest extends TestCase
         $this->assertNotNull($custom);
         $this->assertSame('Windhoek Light', $custom->name);
         $this->assertSame(PubGolfDrinkCategory::Beer, $custom->category);
+        $this->assertNull($custom->calories);
         $this->assertNotNull($custom->photo_path);
         Storage::disk('public')->assertExists($custom->photo_path);
 
@@ -67,6 +68,54 @@ class PubGolfCustomDrinkTest extends TestCase
             ->get(route('pub-golf.recap.show', $crawl))
             ->assertOk()
             ->assertSee('Windhoek Light');
+    }
+
+    public function test_players_can_add_optional_calories_with_a_drink(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)
+            ->from(route('pub-golf.show', $crawl))
+            ->post(route('pub-golf.custom-drinks.store', $crawl), [
+                'name' => 'Black Label',
+                'category' => PubGolfDrinkCategory::Beer->value,
+                'calories' => '180',
+                'photo' => $this->drinkPhoto(),
+            ])
+            ->assertRedirect(route('pub-golf.show', $crawl))
+            ->assertSessionHas('status', 'Black Label added to the list.');
+
+        $this->assertDatabaseHas('pub_golf_custom_drinks', [
+            'name' => 'Black Label',
+            'calories' => 180,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('pub-golf.show', $crawl))
+            ->assertOk()
+            ->assertSee('data-drink-calories="180"', false);
+    }
+
+    public function test_calorie_input_must_be_a_reasonable_whole_number_when_adding_a_drink(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $crawl = PubGolfCrawl::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)
+            ->from(route('pub-golf.show', $crawl))
+            ->post(route('pub-golf.custom-drinks.store', $crawl), [
+                'name' => 'House pour',
+                'category' => PubGolfDrinkCategory::Spirit->value,
+                'calories' => '9001',
+                'photo' => $this->drinkPhoto(),
+            ])
+            ->assertRedirect(route('pub-golf.show', $crawl))
+            ->assertSessionHasErrors(['calories' => 'Calories must be 5000 or less.']);
+
+        $this->assertDatabaseCount('pub_golf_custom_drinks', 0);
     }
 
     public function test_a_blank_custom_drink_name_is_rejected(): void

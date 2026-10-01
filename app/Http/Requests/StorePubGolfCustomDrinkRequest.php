@@ -29,6 +29,7 @@ class StorePubGolfCustomDrinkRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:80'],
             'category' => ['required', Rule::enum(PubGolfDrinkCategory::class)],
+            'calories' => ['nullable', 'integer', 'min:0', 'max:5000'],
             'photo' => [
                 'required',
                 'file',
@@ -47,6 +48,9 @@ class StorePubGolfCustomDrinkRequest extends FormRequest
             'name.required' => 'Give the drink a name.',
             'category.required' => 'Pick a category.',
             'category.enum' => 'Pick a category.',
+            'calories.integer' => 'Calories must be a whole number.',
+            'calories.min' => 'Calories cannot be negative.',
+            'calories.max' => 'Calories must be 5000 or less.',
             'photo.required' => 'Add a photo of the drink.',
             'photo.file' => 'Add a photo of the drink.',
             'photo.max' => 'Keep the photo under 10 MB.',
@@ -87,6 +91,13 @@ class StorePubGolfCustomDrinkRequest extends FormRequest
         return PubGolfDrinkCategory::from($this->validated('category'));
     }
 
+    public function calories(): ?int
+    {
+        $calories = $this->validated('calories');
+
+        return is_numeric($calories) ? (int) $calories : null;
+    }
+
     public function photo(): UploadedFile
     {
         $photo = $this->file('photo');
@@ -100,8 +111,11 @@ class StorePubGolfCustomDrinkRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (is_string($this->name)) {
-            $this->merge(['name' => trim($this->name)]);
-        }
+        $calories = $this->input('calories');
+
+        $this->merge([
+            'name' => is_string($this->name) ? trim($this->name) : $this->name,
+            'calories' => is_numeric($calories) ? (int) $calories : null,
+        ]);
     }
 }

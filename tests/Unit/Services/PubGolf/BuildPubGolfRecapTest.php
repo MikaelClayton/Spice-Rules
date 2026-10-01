@@ -79,5 +79,54 @@ class BuildPubGolfRecapTest extends TestCase
         $this->assertSame('Beer', $recap['by_category'][0]['label']);
         $this->assertSame('Castle Lager', $recap['by_drink'][0]['label']);
         $this->assertSame([], $recap['pins']);
+        $this->assertSame(0, $recap['calories']);
+        $this->assertNull($recap['calorie_burn']);
+    }
+
+    public function test_recap_sums_calories_and_estimates_zone_2_running(): void
+    {
+        $this->travelTo('2026-09-08 18:00:00');
+        $host = User::factory()->create(['name' => 'Host']);
+        $crawl = PubGolfCrawl::factory()->create([
+            'user_id' => $host->id,
+            'started_at' => now(),
+        ]);
+        $crawl->participants()->where('user_id', $host->id)->update(['joined_at' => now()]);
+        $lager = PubGolfCustomDrink::factory()->create([
+            'user_id' => $host->id,
+            'name' => 'Castle Lager',
+            'category' => PubGolfDrinkCategory::Beer,
+        ]);
+
+        PubGolfDrinkLog::factory()->create([
+            'pub_golf_crawl_id' => $crawl->id,
+            'user_id' => $host->id,
+            'drink_id' => $lager->id,
+            'calories' => 180,
+            'created_at' => now(),
+        ]);
+        PubGolfDrinkLog::factory()->create([
+            'pub_golf_crawl_id' => $crawl->id,
+            'user_id' => $host->id,
+            'drink_id' => $lager->id,
+            'calories' => 220,
+            'created_at' => now(),
+        ]);
+        PubGolfDrinkLog::factory()->create([
+            'pub_golf_crawl_id' => $crawl->id,
+            'user_id' => $host->id,
+            'drink_id' => $lager->id,
+            'calories' => null,
+            'created_at' => now(),
+        ]);
+
+        $crawl->participants()->where('user_id', $host->id)->update(['left_at' => now()]);
+
+        $recap = app(BuildPubGolfRecap::class)->handle($crawl->fresh(['participants.user', 'drinkLogs.user', 'drinkLogs.drink']), $host);
+
+        $this->assertSame(400, $recap['calories']);
+        $this->assertSame(49, $recap['calorie_burn']['minutes']);
+        $this->assertSame(70, $recap['calorie_burn']['weight_kg']);
+        $this->assertSame('400 ÷ (7 × 70 ÷ 60) = 400 ÷ 8.17 ≈ 49 minutes', $recap['calorie_burn']['equation']);
     }
 }

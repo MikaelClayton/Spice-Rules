@@ -78,7 +78,7 @@ export function renderDayOverview(section, payload, charts) {
 
     renderLine(section, overview, charts, hasScores);
     renderBars(section, overview, charts, hasScores);
-    renderLegend(section, overview, hasScores);
+    renderLegend(section, overview, hasScores, charts);
 }
 
 function renderLine(section, overview, charts, hasScores) {
@@ -177,7 +177,7 @@ function renderBars(section, overview, charts, hasScores) {
     });
 }
 
-function renderLegend(section, overview, hasScores) {
+function renderLegend(section, overview, hasScores, charts) {
     const host = section.querySelector('[data-day-legend]');
 
     if (!host) {
@@ -197,13 +197,45 @@ function renderLegend(section, overview, hasScores) {
             const color = player.color || fallbackColor(index);
 
             return `
-                <li class="flex items-start gap-2 text-xs leading-snug text-base-content/80">
-                    <span class="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style="background:${color}"></span>
-                    <span class="min-w-0 flex-1 break-words">${escapeHtml(player.label || 'Unknown')}</span>
+                <li>
+                    <button
+                        type="button"
+                        data-dataset-index="${index}"
+                        aria-pressed="true"
+                        class="flex w-full items-start gap-2 rounded-md px-1 py-1 text-left text-xs leading-snug text-base-content/80 transition-opacity hover:bg-base-200"
+                    >
+                        <span class="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style="background:${color}"></span>
+                        <span class="min-w-0 flex-1 break-words">${escapeHtml(player.label || 'Unknown')}</span>
+                    </button>
                 </li>
             `;
         })
         .join('');
+
+    host.querySelectorAll('[data-dataset-index]').forEach((button) => {
+        if (!(button instanceof HTMLButtonElement)) {
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            const index = Number(button.dataset.datasetIndex);
+
+            if (!Number.isInteger(index)) {
+                return;
+            }
+
+            const progressVisible = charts.progress?.isDatasetVisible(index) ?? true;
+            const visible = !progressVisible;
+
+            charts.progress?.setDatasetVisibility(index, visible);
+            charts.rounds?.setDatasetVisibility(index, visible);
+            charts.progress?.update();
+            charts.rounds?.update();
+            button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+            button.classList.toggle('opacity-40', !visible);
+            button.classList.toggle('line-through', !visible);
+        });
+    });
 }
 
 function setChart(charts, key, canvas, config) {

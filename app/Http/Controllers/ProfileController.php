@@ -118,45 +118,37 @@ class ProfileController extends Controller
                 ->withErrors(['fit_ish' => 'Add your Lionheart user ID before syncing.']);
         }
 
-        $throttleKey = 'fit-ish-sync:'.$user->id;
+        $throttleKey = 'fit-ish-sync';
 
         if (RateLimiter::tooManyAttempts($throttleKey, 1)) {
             $seconds = RateLimiter::availableIn($throttleKey);
 
             return redirect()
                 ->route('profile.edit', ['tab' => 'fit-ish'])
-                ->withErrors(['fit_ish' => "Wait {$seconds} seconds before syncing again."]);
+                ->withErrors(['fit_ish' => "Someone just synced. Wait {$seconds} seconds before syncing again."]);
         }
 
         RateLimiter::hit($throttleKey, 30);
 
-        try {
-            $imported = $sync->sync($user, force: true);
-        } catch (RequestException $exception) {
-            Log::warning('Fit-Ish profile sync was rejected', [
-                'user_id' => $user->id,
-                'status' => $exception->response?->status(),
-            ]);
+        $result = $sync->handle();
 
-            return redirect()
-                ->route('profile.edit', ['tab' => 'fit-ish'])
-                ->withErrors(['fit_ish' => 'Lionheart rejected this request. Check the user ID and try again.']);
-        } catch (ConnectionException $exception) {
-            Log::warning('Fit-Ish profile sync could not connect', [
-                'user_id' => $user->id,
-                'message' => $exception->getMessage(),
-            ]);
-
+        if ($result['synced'] === 0 && $result['skipped'] > 0) {
             return redirect()
                 ->route('profile.edit', ['tab' => 'fit-ish'])
                 ->withErrors(['fit_ish' => 'Could not reach Lionheart. Try Sync again in a moment.']);
         }
 
+        $classes = $result['sessions'] === 1 ? '1 class' : "{$result['sessions']} classes";
+        $people = $result['synced'] === 1 ? '1 person' : "{$result['synced']} people";
+        $status = "Fit-Ish synced {$classes} for {$people}.";
+
+        if ($result['skipped'] > 0) {
+            $status .= " Lionheart failed for {$result['skipped']}.";
+        }
+
         return redirect()
             ->route('profile.edit', ['tab' => 'fit-ish'])
-            ->with('status', $imported === 1
-                ? 'Fit-Ish synced 1 class.'
-                : "Fit-Ish synced {$imported} classes.");
+            ->with('status', $status);
     }
 
     public function updateGeoguessr(UpdateGeoguessrSettingsRequest $request, GeoguessrClient $client): RedirectResponse

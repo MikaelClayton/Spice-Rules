@@ -1,8 +1,12 @@
 <div class="flex flex-col gap-4">
+@if ($standings->isNotEmpty())
+    <p class="px-1 text-xs text-base-content/60">Ranked worst first: shoeys, then funnels, down downs and sips.</p>
+@endif
 @forelse ($standings as $row)
     <details data-player="{{ $row['user']->id }}" class="card group bg-base-100 shadow-md {{ $row['user']->id === Auth::id() ? 'ring-2 ring-primary' : '' }}">
         <summary class="card-body cursor-pointer list-none p-3.5 sm:p-4 [&::-webkit-details-marker]:hidden">
             <div class="flex items-center gap-3">
+                <span class="w-6 shrink-0 text-center text-sm font-bold tabular-nums text-base-content/60" data-player-rank="{{ $row['rank'] ?? '' }}">{{ $row['rank'] !== null ? '#'.$row['rank'] : '–' }}</span>
                 <span class="inline-block h-3 w-3 shrink-0 rounded-full" style="background: {{ $row['user']->boardColor() }}"></span>
                 <p class="min-w-0 flex-1 truncate font-semibold leading-tight">
                     {{ $row['user']->name }}
@@ -38,6 +42,16 @@
                     <div class="flex items-center justify-between gap-3 border-t border-base-300 py-3 first:border-t-0 first:pt-0 last:pb-0" data-open-fine-id="{{ $fine->id }}">
                         <div class="min-w-0">
                             <p class="text-sm text-base-content/70">{{ $fine->displayReason() }}</p>
+                            @if ($row['showAccumulationBreakdown'] && $fine->accumulationSummary() !== [])
+                                <div class="mt-1.5 rounded-box bg-base-200 px-3 py-2" data-accumulation-summary="{{ $fine->id }}">
+                                    <p class="text-xs font-semibold text-base-content/70">Made up of</p>
+                                    <ul class="mt-1 space-y-0.5 text-xs text-base-content/60">
+                                        @foreach ($fine->accumulationSummary() as $line)
+                                            <li>{{ $line }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
                             <p class="mt-0.5 text-xs text-base-content/50">from {{ $fine->issuedBy?->name ?? 'Unknown' }}</p>
                         </div>
                         @include('wickets.stat', [

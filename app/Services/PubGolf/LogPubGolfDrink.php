@@ -3,6 +3,7 @@
 namespace App\Services\PubGolf;
 
 use App\Models\PubGolfCrawl;
+use App\Models\PubGolfCustomDrink;
 use App\Models\PubGolfDrinkLog;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,7 @@ class LogPubGolfDrink
         PubGolfListedDrink $drink,
         ?float $latitude = null,
         ?float $longitude = null,
+        ?int $calories = null,
     ): PubGolfDrinkLog {
         if (! $crawl->isOpen() || ! $crawl->isActiveParticipant($user)) {
             throw ValidationException::withMessages([
@@ -42,7 +44,14 @@ class LogPubGolfDrink
             'location' => null,
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'calories' => $calories,
         ]);
+
+        if ($calories !== null) {
+            PubGolfCustomDrink::query()
+                ->whereKey($drink->customId)
+                ->update(['calories' => $calories]);
+        }
 
         if ($latitude !== null && $longitude !== null) {
             $this->resolvePlaceAfterResponse($log->id, $latitude, $longitude);

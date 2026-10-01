@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Play Spirdle — '.config('app.name'))
+@section('title', (! empty($mode) && $mode === 'practice' ? 'Practice Spirdle' : 'Play Spirdle').' — '.config('app.name'))
 @section('hideSupportWidget')
 @endsection
 @section('playLayout')
@@ -11,11 +11,14 @@
     @php
         $readonly = ! empty($readonly);
         $backUrl = $backUrl ?? route('spirdle.index');
+        $isPractice = ($mode ?? 'daily') === 'practice';
     @endphp
     <div class="mb-1 flex shrink-0 items-center justify-between gap-3">
         <a href="{{ $backUrl }}" class="btn btn-ghost btn-sm -ml-2">← Back</a>
         @if ($readonly && filled($playerName ?? null))
             <p class="min-w-0 truncate text-sm font-semibold">{{ $playerName }}</p>
+        @elseif ($isPractice)
+            <p class="min-w-0 truncate text-sm font-semibold">Practice</p>
         @endif
         <p class="text-sm tabular-nums text-base-content/60" data-spirdle-clock>
             @if ($game['finished'] && $game['durationLabel'])
@@ -30,11 +33,19 @@
         class="relative mx-auto flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden"
         data-spirdle-play
         @unless ($readonly)
-            data-guess-url="{{ route('spirdle.guesses.store') }}"
-            data-pause-url="{{ route('spirdle.pause') }}"
-            data-resume-url="{{ route('spirdle.resume') }}"
-            data-words-url="{{ asset('spirdle-guesses.txt') }}"
-            data-board-url="{{ route('spirdle.index') }}"
+            @if ($isPractice)
+                data-guess-url="{{ route('spirdle.practice.guesses.store') }}"
+                data-pause-url="{{ route('spirdle.practice.pause') }}"
+                data-resume-url="{{ route('spirdle.practice.resume') }}"
+                data-words-url="{{ asset('spirdle-guesses.txt') }}"
+                data-replay-url="{{ route('spirdle.practice') }}"
+            @else
+                data-guess-url="{{ route('spirdle.guesses.store') }}"
+                data-pause-url="{{ route('spirdle.pause') }}"
+                data-resume-url="{{ route('spirdle.resume') }}"
+                data-words-url="{{ asset('spirdle-guesses.txt') }}"
+                data-board-url="{{ route('spirdle.index') }}"
+            @endif
         @else
             data-readonly="true"
         @endunless
@@ -62,6 +73,15 @@
                     </div>
                 @endfor
             </div>
+
+            @if ($isPractice)
+                <div class="flex shrink-0 flex-col items-center gap-2" hidden data-spirdle-practice-end>
+                    <p class="text-sm font-semibold uppercase tracking-[0.2em]" data-spirdle-result></p>
+                    <a href="{{ route('spirdle.practice') }}" class="btn btn-primary btn-sm" data-spirdle-replay>
+                        Practice again
+                    </a>
+                </div>
+            @endif
 
             @unless ($readonly)
                 <div class="grid shrink-0 gap-[6px]" data-keyboard>

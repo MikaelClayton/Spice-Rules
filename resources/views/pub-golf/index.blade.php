@@ -63,8 +63,8 @@
             <div class="card bg-base-100 shadow-xl">
                 <div class="card-body">
                     <h2 class="card-title">Join a crawl</h2>
-                    <p class="text-sm text-base-content/70">Ask the starter for the 6-character code.</p>
-                    <form method="POST" action="{{ route('pub-golf.joins.store') }}" class="space-y-3">
+                    <p class="text-sm text-base-content/70">Ask the starter for the 6-character code, or scan their QR.</p>
+                    <form method="POST" action="{{ route('pub-golf.joins.store') }}" class="space-y-3" data-join-form>
                         @csrf
                         <fieldset class="fieldset">
                             <label class="label" for="code">Crawl code</label>
@@ -78,14 +78,38 @@
                                 autocapitalize="characters"
                                 autocomplete="off"
                                 placeholder="AB3K7Q"
+                                data-join-code-input
                             >
                         </fieldset>
-                        <button type="submit" class="btn btn-secondary w-full">Join crawl</button>
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <button type="button" class="btn btn-outline w-full" data-join-scan-open>Scan QR</button>
+                            <button type="submit" class="btn btn-secondary w-full">Join crawl</button>
+                        </div>
                     </form>
                 </div>
             </div>
         </div>
     @endif
+
+    <dialog id="pub-golf-join-scan" class="modal" data-join-scan>
+        <div class="modal-box max-w-md">
+            <h3 class="text-lg font-bold">Scan crawl QR</h3>
+            <p class="mt-1 text-sm text-base-content/70">Point your camera at the host’s code.</p>
+            <div class="relative mt-4 overflow-hidden rounded-2xl bg-neutral">
+                <video class="aspect-square w-full object-cover" playsinline muted data-join-scan-video></video>
+                <div class="pointer-events-none absolute inset-8 rounded-xl border-2 border-white/70"></div>
+            </div>
+            <p class="mt-3 text-sm text-base-content/60" data-join-scan-status>Starting camera…</p>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost" data-join-scan-close>Cancel</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button data-join-scan-close>close</button>
+        </form>
+    </dialog>
 
     <section>
         <h2 class="mb-3 text-lg font-semibold">Your nights</h2>

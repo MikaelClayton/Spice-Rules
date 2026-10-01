@@ -50,7 +50,7 @@ If today's daily is already saved with rounds, that profile is skipped. Refresh 
 php artisan geoguessr:sync --force
 ```
 
-On the VPS this also runs every 30 minutes via the Laravel scheduler. The scheduler itself is triggered every minute:
+On the VPS this also runs every hour from 08:00 through 22:00 SAST via the Laravel scheduler. The scheduler itself is triggered every minute:
 
 ```bash
 * * * * * cd /var/www/spice-rules && php artisan schedule:run >> /dev/null 2>&1

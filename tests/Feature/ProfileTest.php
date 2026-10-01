@@ -41,7 +41,7 @@ class ProfileTest extends TestCase
             ->assertSee('Fit-Ish')
             ->assertSee('Pub Golf')
             ->assertSee('Allow location')
-            ->assertSee('Turning this on asks your phone now.')
+            ->assertSee('Turning this on asks your phone once.')
             ->assertSee('data-pub-golf-location', false)
             ->assertSee('data-save-url="'.e(route('profile.pub-golf.update')).'"', false)
             ->assertSee('_ncfa')

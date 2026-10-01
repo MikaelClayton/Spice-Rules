@@ -123,16 +123,20 @@ class SyncFitIshCommandTest extends TestCase
         ]);
     }
 
-    public function test_users_can_sync_from_their_profile(): void
+    public function test_syncing_from_the_profile_syncs_every_fit_ish_member(): void
     {
         $this->travelTo(Carbon::parse('2026-09-15 06:30:00', 'Africa/Johannesburg'));
         Storage::fake('public');
         $user = User::factory()->withFitIsh()->create();
+        $teammate = User::factory()->withFitIsh('22222222', '2000')->create();
+        $teammateSessionId = '2026-09-15_0600:studio:ojb7:serial:2000';
 
         Http::preventStrayRequests();
         Http::fake([
             'https://api.lionheart.f45.com/v3/profile/sessions/summary*' => Http::response(FitIshPayloads::summary()),
+            'https://api.lionheart.f45.com/v3/profile/sessions?user_id=22222222*' => Http::response(FitIshPayloads::sessionList($teammateSessionId)),
             'https://api.lionheart.f45.com/v3/profile/sessions*' => Http::response(FitIshPayloads::sessionList()),
+            'https://api.lionheart.f45.com/v3/sessions/*user_id=22222222*' => Http::response(FitIshPayloads::session(['sessionId' => $teammateSessionId])),
             'https://api.lionheart.f45.com/v3/sessions/*' => Http::response(FitIshPayloads::session()),
             'https://f45tv.cdn.f45.com/*' => Http::response('fake-png', 200, ['Content-Type' => 'image/png']),
         ]);
@@ -140,12 +144,34 @@ class SyncFitIshCommandTest extends TestCase
         $this->actingAs($user)
             ->post(route('profile.fit-ish.sync'))
             ->assertRedirect(route('profile.edit', ['tab' => 'fit-ish']))
-            ->assertSessionHas('status');
+            ->assertSessionHas('status', 'Fit-Ish synced 2 classes for 2 people.');
 
         $this->assertDatabaseHas('fit_ish_sessions', [
             'user_id' => $user->id,
             'session_id' => '2026-09-15_0600:studio:ojb7:serial:1352',
         ]);
+        $this->assertDatabaseHas('fit_ish_sessions', [
+            'user_id' => $teammate->id,
+            'session_id' => $teammateSessionId,
+        ]);
+    }
+
+    public function test_profile_sync_is_throttled_for_everyone_after_someone_syncs(): void
+    {
+        $user = User::factory()->withFitIsh()->create();
+        $teammate = User::factory()->withFitIsh('22222222', '2000')->create();
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.lionheart.f45.com/v3/profile/sessions/summary*' => Http::response(FitIshPayloads::summary()),
+            'https://api.lionheart.f45.com/v3/profile/sessions*' => Http::response(['data' => []]),
+        ]);
+
+        $this->actingAs($user)->post(route('profile.fit-ish.sync'))->assertSessionHasNoErrors();
+
+        $this->actingAs($teammate)
+            ->post(route('profile.fit-ish.sync'))
+            ->assertSessionHasErrors('fit_ish');
     }
 
     public function test_fit_ish_sync_is_scheduled_at_eight_and_eighteen_sast(): void

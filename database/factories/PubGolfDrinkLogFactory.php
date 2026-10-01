@@ -26,6 +26,7 @@ class PubGolfDrinkLogFactory extends Factory
             'location' => null,
             'latitude' => null,
             'longitude' => null,
+            'calories' => null,
         ];
     }
 

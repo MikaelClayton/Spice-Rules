@@ -22,6 +22,7 @@ class PubGolfCustomDrinkController extends Controller
             $request->validated('name'),
             $request->category(),
             $request->photo(),
+            $request->calories(),
         );
 
         return redirect()

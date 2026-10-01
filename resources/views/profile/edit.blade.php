@@ -500,8 +500,11 @@
                     @if (filled($user->fit_ish_user_id))
                         <form method="POST" action="{{ route('profile.fit-ish.sync') }}" class="mt-4 space-y-2">
                             @csrf
-                            <button type="submit" class="btn btn-secondary">Sync classes</button>
-                            <p class="text-sm text-base-content/70">Pull your latest Lionheart sessions without waiting for the 30-minute refresh.</p>
+                            <button type="submit" class="btn btn-secondary" data-loading-text="Syncing everyone…">
+                                <span data-btn-label>Sync everyone's classes</span>
+                            </button>
+                            <p class="text-sm text-base-content/70">Pulls the latest Lionheart sessions for every Fit-Ish member without waiting for the 08:00 and 18:00 sync.</p>
+                            <p class="text-sm font-medium text-base-content" role="status" data-loading-message hidden>Talking to Lionheart for everyone. This can take a little while, so keep this page open.</p>
                         </form>
                     @endif
 
@@ -644,7 +647,7 @@
                             <label for="allow_pub_golf_location" class="min-w-0 flex-1 cursor-pointer">
                                 <span class="font-medium">Allow location</span>
                                 <span class="mt-0.5 block text-sm font-normal whitespace-normal text-base-content/70">
-                                    Turning this on asks your phone now. After that, a pin is only taken when you log a drink. If you refuse, this stays off so we do not ask again.
+                                    Turning this on asks your phone once. Pick “Allow” or “While using the app”, not “Allow once”, so we can reuse the pin for the night. If you refuse, this stays off.
                                 </span>
                             </label>
                         </div>

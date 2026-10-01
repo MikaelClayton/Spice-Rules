@@ -9,12 +9,23 @@ use App\Models\GeoguesserRound;
 use App\Models\OutgoingApiCall;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class SyncGeoguessrCommandTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_geoguessr_sync_is_scheduled_hourly_from_eight_to_twenty_two_sast(): void
+    {
+        Artisan::call('schedule:list');
+
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('geoguessr:sync', $output);
+        $this->assertMatchesRegularExpression('/0\s+8-22\s+\*\s+\*\s+\*/', $output);
+    }
 
     public function test_it_syncs_active_geoguessers_with_an_ncfa(): void
     {

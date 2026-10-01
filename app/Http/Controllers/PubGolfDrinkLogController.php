@@ -22,6 +22,7 @@ class PubGolfDrinkLogController extends Controller
             $drink,
             $request->latitude(),
             $request->longitude(),
+            $request->calories(),
         );
 
         $status = $drink->label.' logged.';

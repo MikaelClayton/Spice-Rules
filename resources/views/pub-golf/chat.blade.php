@@ -5,7 +5,7 @@
 @endphp
 
 <div
-    class="group/chat fixed right-4 bottom-4 z-40 flex flex-col items-end gap-3 max-sm:data-[open]:inset-0 max-sm:data-[open]:right-auto max-sm:data-[open]:bottom-auto max-sm:data-[open]:items-stretch"
+    class="group/chat fixed bottom-4 left-4 z-40 flex flex-col items-start gap-3 max-sm:data-[open]:inset-0 max-sm:data-[open]:bottom-auto max-sm:data-[open]:left-auto max-sm:data-[open]:items-stretch"
     data-pub-golf-chat
     data-poll-url="{{ route('pub-golf.chat.index', $crawl) }}"
     data-store-url="{{ route('pub-golf.chat.store', $crawl) }}"

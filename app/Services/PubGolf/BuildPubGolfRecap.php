@@ -18,6 +18,7 @@ class BuildPubGolfRecap
         private DescribePubGolfPace $describePubGolfPace,
         private DescribePubGolfMapPins $describePubGolfMapPins,
         private DescribePubGolfStops $describePubGolfStops,
+        private DescribePubGolfCalorieBurn $describePubGolfCalorieBurn,
         private ResolveDisplayTimezone $resolveDisplayTimezone,
     ) {}
 
@@ -26,6 +27,8 @@ class BuildPubGolfRecap
      *     drink_count: int,
      *     alcoholic_count: int,
      *     units: float,
+     *     calories: int,
+     *     calorie_burn: array{calories: int, minutes: int, kcal_per_minute: float, met: float, weight_kg: int, equation: string, summary: string}|null,
      *     pace: array{drinks_per_hour: float, label: string, level: int, tone: string, steps: list<string>, duration_seconds: int, duration_label: string},
      *     joined_at: string,
      *     left_at: string,
@@ -62,6 +65,7 @@ class BuildPubGolfRecap
             ->sortBy('id')
             ->values();
         $units = round($logs->sum(fn (PubGolfDrinkLog $log): float => $log->listed()->standardDrinks), 1);
+        $calories = (int) $logs->sum(fn (PubGolfDrinkLog $log): int => (int) ($log->calories ?? 0));
         $pace = $this->describePubGolfPace->snapshot($logs->count(), $participant->durationSeconds($endedAt));
         $hourly = $this->hourly($logs, $participant->joined_at, $endedAt);
         $byCategory = $this->byCategory($logs);
@@ -73,6 +77,8 @@ class BuildPubGolfRecap
             'drink_count' => $logs->count(),
             'alcoholic_count' => $logs->count(),
             'units' => $units,
+            'calories' => $calories,
+            'calorie_burn' => $this->describePubGolfCalorieBurn->handle($calories),
             'pace' => $pace,
             'joined_at' => $participant->joined_at->copy()->timezone($timezone)->format('g:i A'),
             'left_at' => $endedAt->copy()->timezone($timezone)->format('g:i A'),

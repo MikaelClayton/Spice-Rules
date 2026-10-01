@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'type',
     'sips_owed',
     'sips_completed',
+    'accumulated_from',
     'completed_at',
 ])]
 class WicketFine extends Model
@@ -35,6 +36,7 @@ class WicketFine extends Model
             'type' => WicketFineType::class,
             'sips_owed' => 'integer',
             'sips_completed' => 'integer',
+            'accumulated_from' => 'array',
             'completed_at' => 'datetime',
         ];
     }
@@ -84,6 +86,28 @@ class WicketFine extends Model
         }
 
         return $this->reason;
+    }
+
+    /**
+     * Lines explaining which sip fines added up to this accumulation down down.
+     *
+     * @return list<string>
+     */
+    public function accumulationSummary(): array
+    {
+        if (! $this->isAccumulationDownDown() || ! is_array($this->accumulated_from)) {
+            return [];
+        }
+
+        return array_values(array_map(function (array $part): string {
+            $sips = (int) ($part['sips'] ?? 0);
+            $owed = (int) ($part['sips_owed'] ?? $sips);
+            $amount = $sips < $owed
+                ? $sips.' of '.$owed.' sips'
+                : ($sips === 1 ? '1 sip' : $sips.' sips');
+
+            return $amount.' for "'.($part['reason'] ?? '').'" from '.($part['issued_by'] ?? 'Someone');
+        }, $this->accumulated_from));
     }
 
     public function isOutstanding(): bool

@@ -149,6 +149,14 @@ class User extends Authenticatable
         return $this->hasMany(SpirdlePlay::class);
     }
 
+    /**
+     * @return HasMany<SpirdlePractice, $this>
+     */
+    public function spirdlePractices(): HasMany
+    {
+        return $this->hasMany(SpirdlePractice::class);
+    }
+
     public function allowsPubGolfLocation(): bool
     {
         return $this->allow_pub_golf_location === true;

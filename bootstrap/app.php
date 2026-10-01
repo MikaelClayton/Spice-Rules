@@ -29,7 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('geoguessr:sync')->everyThirtyMinutes();
+        $schedule->command('geoguessr:sync')
+            ->cron('0 8-22 * * *')
+            ->timezone('Africa/Johannesburg')
+            ->withoutOverlapping();
         $schedule->command('fit-ish:sync')
             ->twiceDaily(8, 18)
             ->timezone('Africa/Johannesburg')

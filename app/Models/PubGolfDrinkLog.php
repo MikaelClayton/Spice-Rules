@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['pub_golf_crawl_id', 'user_id', 'drink_id', 'location', 'latitude', 'longitude'])]
+#[Fillable(['pub_golf_crawl_id', 'user_id', 'drink_id', 'location', 'latitude', 'longitude', 'calories'])]
 class PubGolfDrinkLog extends Model
 {
     /** @use HasFactory<PubGolfDrinkLogFactory> */
@@ -24,6 +24,7 @@ class PubGolfDrinkLog extends Model
         return [
             'latitude' => 'float',
             'longitude' => 'float',
+            'calories' => 'integer',
         ];
     }
 
@@ -66,6 +67,7 @@ class PubGolfDrinkLog extends Model
             imageUrl: null,
             standardDrinks: 1.0,
             isCustom: false,
+            calories: null,
         );
     }
 }

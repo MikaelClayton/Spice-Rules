@@ -100,6 +100,12 @@
     border: 1px solid var(--input-color);
 }
 
+.btn[aria-busy='true']:disabled:not(.btn-link, .btn-ghost) {
+    background-color: var(--btn-color, var(--color-base-200));
+    color: var(--btn-fg);
+    cursor: progress;
+}
+
 [data-challenge-map],
 [data-insight-map],
 [data-pub-golf-map] {

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\SpirdlePlay;
 use App\Models\SpirdlePuzzle;
 use App\Models\SpirdleWord;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,5 +40,43 @@ class OpenSpirdleDailyCommandTest extends TestCase
     public function test_it_fails_when_no_answers_are_loaded(): void
     {
         $this->artisan('spirdle:open-daily')->assertFailed();
+    }
+
+    public function test_it_replaces_a_demoted_answer_when_nobody_has_finished(): void
+    {
+        $this->travelTo('2026-09-16 00:00:00');
+
+        $nikon = SpirdleWord::factory()->create(['word' => 'nikon', 'is_answer' => false]);
+        $crane = SpirdleWord::factory()->create(['word' => 'crane', 'is_answer' => true]);
+
+        $puzzle = SpirdlePuzzle::factory()->create([
+            'spirdle_word_id' => $nikon->id,
+            'play_date' => '2026-09-16',
+        ]);
+
+        $this->artisan('spirdle:open-daily')->assertSuccessful();
+
+        $this->assertSame($crane->id, $puzzle->fresh()->spirdle_word_id);
+    }
+
+    public function test_it_keeps_a_demoted_answer_after_someone_finishes(): void
+    {
+        $this->travelTo('2026-09-16 00:00:00');
+
+        $nikon = SpirdleWord::factory()->create(['word' => 'nikon', 'is_answer' => false]);
+        SpirdleWord::factory()->create(['word' => 'crane', 'is_answer' => true]);
+
+        $puzzle = SpirdlePuzzle::factory()->create([
+            'spirdle_word_id' => $nikon->id,
+            'play_date' => '2026-09-16',
+        ]);
+
+        SpirdlePlay::factory()->finished()->create([
+            'spirdle_puzzle_id' => $puzzle->id,
+        ]);
+
+        $this->artisan('spirdle:open-daily')->assertSuccessful();
+
+        $this->assertSame($nikon->id, $puzzle->fresh()->spirdle_word_id);
     }
 }

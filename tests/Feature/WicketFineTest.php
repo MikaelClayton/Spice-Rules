@@ -152,7 +152,10 @@ class WicketFineTest extends TestCase
             ->get(route('wickets.show', $group))
             ->assertOk()
             ->assertSee(WicketFine::ACCUMULATION_REASON)
-            ->assertSee('Down down');
+            ->assertSee('Down down')
+            ->assertSee('Made up of')
+            ->assertSee('7 sips for "Slow play" from '.$owner->name)
+            ->assertSee('1 sip for "One more" from '.$owner->name);
     }
 
     public function test_legacy_accumulation_down_downs_show_the_full_explanation(): void
@@ -171,7 +174,8 @@ class WicketFineTest extends TestCase
             ->get(route('wickets.show', $group))
             ->assertOk()
             ->assertSee(WicketFine::ACCUMULATION_REASON)
-            ->assertSee('Down down');
+            ->assertSee('Down down')
+            ->assertDontSee('Made up of');
     }
 
     public function test_sips_past_eight_leave_the_remainder(): void
@@ -183,6 +187,7 @@ class WicketFineTest extends TestCase
             'wicket_group_id' => $group->id,
             'issued_by_user_id' => $owner->id,
             'issued_to_user_id' => $member->id,
+            'reason' => 'Slow play',
         ]);
 
         $this->actingAs($owner)
@@ -202,6 +207,73 @@ class WicketFineTest extends TestCase
 
         $this->assertNotNull($remainingSipFine);
         $this->assertSame(1, $remainingSipFine->remainingSips());
+
+        $accumulation = WicketFine::query()->where('type', WicketFineType::DownDown)->sole();
+        $this->assertSame([
+            '5 sips for "Slow play" from '.$owner->name,
+            '3 of 4 sips for "Pushing it" from '.$owner->name,
+        ], $accumulation->accumulationSummary());
+    }
+
+    public function test_the_board_ranks_players_by_shoeys_then_funnels_then_down_downs_then_sips(): void
+    {
+        $owner = User::factory()->create(['name' => 'Owner']);
+        $sipper = User::factory()->create(['name' => 'Ada Sips']);
+        $downDowner = User::factory()->create(['name' => 'Ben Down']);
+        $funneller = User::factory()->create(['name' => 'Cal Funnel']);
+        $shoeyer = User::factory()->create(['name' => 'Dee Shoey']);
+        $group = $this->groupWithMembers($owner, $sipper, $downDowner, $funneller, $shoeyer);
+        $fine = fn (User $target, WicketFineType $type, int $sips = 0) => WicketFine::factory()->ofType($type, $sips)->create([
+            'wicket_group_id' => $group->id,
+            'issued_by_user_id' => $owner->id,
+            'issued_to_user_id' => $target->id,
+        ]);
+
+        $fine($sipper, WicketFineType::Sips, 7);
+        $fine($downDowner, WicketFineType::DownDown);
+        $fine($downDowner, WicketFineType::DownDown);
+        $fine($funneller, WicketFineType::Funnel);
+        $fine($shoeyer, WicketFineType::Shoey);
+
+        $this->actingAs($owner)
+            ->get(route('wickets.show', $group))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'data-player-rank="1"', 'Dee Shoey',
+                'data-player-rank="2"', 'Cal Funnel',
+                'data-player-rank="3"', 'Ben Down',
+                'data-player-rank="4"', 'Ada Sips',
+                'data-player-rank="5"', 'Owner',
+            ], false);
+    }
+
+    public function test_a_tournament_player_does_not_see_the_accumulation_breakdown_of_others(): void
+    {
+        $owner = User::factory()->create();
+        $viewer = User::factory()->create();
+        $target = User::factory()->create();
+        $group = $this->groupWithMembers($owner, $viewer, $target);
+        $group->update(['is_tournament' => true]);
+        $accumulation = WicketFine::factory()->ofType(WicketFineType::DownDown)->create([
+            'wicket_group_id' => $group->id,
+            'issued_by_user_id' => $viewer->id,
+            'issued_to_user_id' => $target->id,
+            'reason' => WicketFine::ACCUMULATION_REASON,
+            'accumulated_from' => [
+                ['fine_id' => 1, 'reason' => 'Secret owner fine', 'sips' => 8, 'sips_owed' => 8, 'issued_by' => $owner->name],
+            ],
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(route('wickets.show', $group))
+            ->assertOk()
+            ->assertSee('data-open-fine-id="'.$accumulation->id.'"', false)
+            ->assertDontSee('Secret owner fine');
+
+        $this->actingAs($owner)
+            ->get(route('wickets.show', $group))
+            ->assertOk()
+            ->assertSee('Secret owner fine');
     }
 
     public function test_members_can_issue_a_shoey(): void

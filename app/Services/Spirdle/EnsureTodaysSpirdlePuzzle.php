@@ -2,6 +2,7 @@
 
 namespace App\Services\Spirdle;
 
+use App\Models\SpirdlePractice;
 use App\Models\SpirdlePuzzle;
 use App\Models\SpirdleWord;
 use Illuminate\Database\QueryException;
@@ -19,7 +20,7 @@ class EnsureTodaysSpirdlePuzzle
             ->first();
 
         if ($existing !== null) {
-            return $existing;
+            return $this->replaceDemotedAnswer($existing);
         }
 
         $word = $this->pickWord();
@@ -45,16 +46,55 @@ class EnsureTodaysSpirdlePuzzle
                 ->first();
 
             if ($existing !== null) {
-                return $existing;
+                return $this->replaceDemotedAnswer($existing);
             }
 
             throw $exception;
         }
     }
 
-    private function pickWord(): ?SpirdleWord
+    private function replaceDemotedAnswer(SpirdlePuzzle $puzzle): SpirdlePuzzle
     {
-        $usedIds = SpirdlePuzzle::query()->pluck('spirdle_word_id');
+        $puzzle->loadMissing('word');
+
+        if ($puzzle->word?->is_answer !== false) {
+            return $puzzle;
+        }
+
+        $hasFinishedPlays = $puzzle->plays()->finished()->exists();
+
+        if ($hasFinishedPlays) {
+            return $puzzle;
+        }
+
+        $replacement = $this->pickWord(excludeIds: [(int) $puzzle->spirdle_word_id]);
+
+        if ($replacement === null) {
+            return $puzzle;
+        }
+
+        $puzzle->spirdle_word_id = $replacement->id;
+        $puzzle->save();
+        $puzzle->setRelation('word', $replacement);
+
+        return $puzzle;
+    }
+
+    /**
+     * @param  list<int>  $excludeIds
+     */
+    private function pickWord(array $excludeIds = []): ?SpirdleWord
+    {
+        $usedIds = SpirdlePuzzle::query()->pluck('spirdle_word_id')
+            ->merge(
+                SpirdlePractice::query()
+                    ->whereNull('finished_at')
+                    ->pluck('spirdle_word_id'),
+            )
+            ->merge($excludeIds)
+            ->unique()
+            ->filter()
+            ->values();
 
         $unused = SpirdleWord::query()
             ->answers()
@@ -66,6 +106,10 @@ class EnsureTodaysSpirdlePuzzle
             return $unused;
         }
 
-        return SpirdleWord::query()->answers()->inRandomOrder()->first();
+        return SpirdleWord::query()
+            ->answers()
+            ->when($excludeIds !== [], fn ($query) => $query->whereNotIn('id', $excludeIds))
+            ->inRandomOrder()
+            ->first();
     }
 }

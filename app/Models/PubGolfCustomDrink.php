@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['user_id', 'name', 'category', 'photo_path', 'removed_at'])]
+#[Fillable(['user_id', 'name', 'category', 'calories', 'photo_path', 'removed_at'])]
 class PubGolfCustomDrink extends Model
 {
     /** @use HasFactory<PubGolfCustomDrinkFactory> */
@@ -26,6 +26,7 @@ class PubGolfCustomDrink extends Model
     {
         return [
             'category' => PubGolfDrinkCategory::class,
+            'calories' => 'integer',
             'removed_at' => 'datetime',
         ];
     }

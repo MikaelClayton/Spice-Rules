@@ -30,6 +30,12 @@ use App\Http\Controllers\SpirdleLiveController;
 use App\Http\Controllers\SpirdlePauseController;
 use App\Http\Controllers\SpirdlePlayController;
 use App\Http\Controllers\SpirdlePlayReviewController;
+use App\Http\Controllers\SpirdlePracticeController;
+use App\Http\Controllers\SpirdlePracticeGuessController;
+use App\Http\Controllers\SpirdlePracticePauseController;
+use App\Http\Controllers\SpirdlePracticeResultsController;
+use App\Http\Controllers\SpirdlePracticeResumeController;
+use App\Http\Controllers\SpirdlePracticeReviewController;
 use App\Http\Controllers\SpirdleResumeController;
 use App\Http\Controllers\WicketFineCompletionController;
 use App\Http\Controllers\WicketFineController;
@@ -73,12 +79,25 @@ Route::middleware('auth')->group(function () {
         ->name('spirdle.pause');
     Route::post('/spirdle/resume', [SpirdleResumeController::class, 'store'])
         ->name('spirdle.resume');
+    Route::get('/spirdle/practice', [SpirdlePracticeController::class, 'show'])->name('spirdle.practice');
+    Route::get('/spirdle/practice/results', SpirdlePracticeResultsController::class)->name('spirdle.practice.results');
+    Route::get('/spirdle/practices/{spirdlePractice}', [SpirdlePracticeReviewController::class, 'show'])->name('spirdle.practices.show');
+    Route::post('/spirdle/practice/guesses', [SpirdlePracticeGuessController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('spirdle.practice.guesses.store');
+    Route::post('/spirdle/practice/pause', [SpirdlePracticePauseController::class, 'store'])
+        ->name('spirdle.practice.pause');
+    Route::post('/spirdle/practice/resume', [SpirdlePracticeResumeController::class, 'store'])
+        ->name('spirdle.practice.resume');
     Route::get('/fit-ish', [FitIshController::class, 'index'])->name('fit-ish.index');
     Route::get('/fit-ish/days/{date}', FitIshDayController::class)
         ->where('date', '\d{4}-\d{2}-\d{2}')
         ->name('fit-ish.days.show');
     Route::get('/pub-golf', [PubGolfCrawlController::class, 'index'])->name('pub-golf.index');
     Route::post('/pub-golf', [PubGolfCrawlController::class, 'store'])->name('pub-golf.store');
+    Route::get('/pub-golf/join/{code}', [PubGolfCrawlJoinController::class, 'show'])
+        ->where('code', '[A-Za-z0-9]{6}')
+        ->name('pub-golf.joins.show');
     Route::post('/pub-golf/joins', [PubGolfCrawlJoinController::class, 'store'])->name('pub-golf.joins.store');
     Route::middleware(EnsurePubGolfCrawlParticipant::class)->group(function () {
         Route::get('/pub-golf/{pubGolfCrawl}', [PubGolfCrawlController::class, 'show'])->name('pub-golf.show');
